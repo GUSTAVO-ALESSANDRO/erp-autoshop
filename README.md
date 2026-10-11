@@ -19,6 +19,7 @@ O **AutoCar ERP** é um sistema desenvolvido em Node.js projetado para automatiz
 - [🛠️ Infraestrutura e Pipeline DevOps (CI/CD)](#️-infraestrutura-e-pipeline-devops-cicd)
 - [💻 Pré-requisitos e Ambiente](#-pré-requisitos-e-ambiente)
 - [🚀 Guia de Configuração e Execução](#-guia-de-configuração-e-execução)
+- [🌐 Ambiente de Produção](#-ambiente-de-produção)
 - [📬 Coleção de Requisições (Postman)](#-coleção-de-requisições-postman)
 - [🧪 Scripts Disponíveis](#-scripts-disponíveis)
 
@@ -226,7 +227,7 @@ O projeto também conta com um pipeline automatizado configurado via **GitHub Ac
 3. **Análise de Qualidade (SonarQube):** Verificação de segurança, vulnerabilidades e *code smells* através de Quality Gate.
 4. **Segurança de Containers (Trivy):** Varredura de vulnerabilidades conhecidas na imagem Docker base e em pacotes.
 5. **Build e Push de Container:** Construção da imagem utilizando **Dockerfile Multi-Stage Build** e envio para o repositório de imagem.
-6. **Deploy Automatizado:** Deploy automático no ambiente de produção hospedado no **Render**.
+6. **Deploy Automatizado:** Deploy automático no ambiente de produção integrado ao banco de dados na nuvem (**Supabase**) e hospedado no **Render**, acessível publicamente através da URL de produção: [https://erp-autoshop.onrender.com](https://erp-autoshop.onrender.com).
 
 ---
 
@@ -295,6 +296,14 @@ Para executar a suíte de testes unitários e de integração com relatório de 
 ```bash
 npm test
 ```
+
+---
+
+### 🌐 Ambiente de Produção
+ 
+O sistema encontra-se implantado e integrado ao banco de dados em nuvem (Supabase) através da plataforma de hospedagem Render:
+ * **URL da Aplicação (Render):** [https://erp-autoshop.onrender.com](https://erp-autoshop.onrender.com)
+ * **Banco de Dados:** Gerenciado em nuvem via **Supabase**, utilizando as mesmas variáveis de migração e conexão estruturadas no projeto.
 
 ---
 
