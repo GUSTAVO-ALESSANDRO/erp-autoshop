@@ -16,14 +16,11 @@ O **AutoCare ERP** é um sistema desenvolvido em Node.js projetado para automati
   - [2. Nodemailer](#2-nodemailer-httpsnodemailercom-serviço-de-e-mail)
 - [🏗️ Arquitetura de Software e Estrutura de Pastas](#️-arquitetura-de-software-e-estrutura-de-pastas)
 - [🗄️ Modelagem do Banco de Dados (DER)](#️-modelagem-do-banco-de-dados-der)
-- [🛠️ Infraestrutura e Esteira DevOps (CI/CD)](#️-infraestrutura-e-esteira-devops-cicd)
+- [🛠️ Infraestrutura e Pipeline DevOps (CI/CD)](#️-infraestrutura-e-pipeline-devops-cicd)
+- [💻 Pré-requisitos e Ambiente](#-pré-requisitos-e-ambiente)
 - [🚀 Guia de Configuração e Execução](#-guia-de-configuração-e-execução)
-  - [Pré-requisitos](#pré-requisitos)
-  - [Passo 1: Clonar o Repositório](#passo-1-clonar-o-repositório)
-  - [Passo 2: Configurar Variáveis de Ambiente](#passo-2-configurar-variáveis-de-ambiente)
-  - [Passo 3: Executar a Aplicação via Docker Compose](#passo-3-executar-a-aplicação-via-docker-compose)
-  - [Executando Testes Automatizados Localmente](#executando-testes-automatizados-localmente)
 - [📬 Coleção de Requisições (Postman)](#-coleção-de-requisições-postman)
+- [🧪 Scripts Disponíveis](#-scripts-disponíveis)
 
 ---
 
@@ -220,7 +217,7 @@ erDiagram
 
 ---
 
-## 🛠️ Infraestrutura e Esteira DevOps (CI/CD)
+## 🛠️ Infraestrutura e Pipeline DevOps (CI/CD)
 
 O projeto também conta com um pipeline automatizado configurado via **GitHub Actions**:
 
@@ -230,6 +227,17 @@ O projeto também conta com um pipeline automatizado configurado via **GitHub Ac
 4. **Segurança de Containers (Trivy):** Varredura de vulnerabilidades conhecidas na imagem Docker base e em pacotes.
 5. **Build e Push de Container:** Construção da imagem utilizando **Dockerfile Multi-Stage Build** e envio para o repositório de imagem.
 6. **Deploy Automatizado:** Deploy automático no ambiente de produção hospedado no **Render**.
+
+---
+
+## 💻 Pré-requisitos e Ambiente
+
+A aplicação é **100% dockerizada**, exigindo prioritariamente o **Docker** e **Docker Compose** para execução. Para desenvolvimento local sem contêiner, consulte os requisitos abaixo:
+
+### 🛠️ Tecnologias de Plataforma
+* **Node.js:** `v20 LTS` ou superior
+* **PostgreSQL:** `v16`
+* **Docker & Docker Compose:** Versão recente com suporte a `docker compose` v2.
 
 ---
 
@@ -299,3 +307,13 @@ Para facilitar a verificação e testes dos endpoints da API, o repositório con
   1. Abra o Postman.
   2. Clique em **Import** e selecione o arquivo `docs/autocare-postman-collection.json`.
   3. A coleção já inclui as variáveis de ambiente necessárias (como `{{baseUrl}}` e `{{authToken}}`) para testar o fluxo completo de autenticação, recuperação de senha, criação de ordens de serviço e consulta de estoque.
+
+  ---
+
+## 🧪 Scripts Disponíveis
+
+| Comando | Descrição |
+| :--- | :--- |
+| `docker compose up --build` | Sobe a aplicação e o banco PostgreSQL em contêineres |
+| `npm test` | Executa as suítes de testes unitários com Jest |
+| `npm run lint` | Executa a verificação estática de código com ESLint |
