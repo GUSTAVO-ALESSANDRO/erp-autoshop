@@ -1,10 +1,14 @@
 import express from 'express';
 import 'dotenv/config'; // Carrega o .env automaticamente da raiz
+import { authRoutes } from './infrastructure/http/routes/authRoutes.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+app.use('/auth', authRoutes);
 
 // Rota de origem
 app.get('/', (req, res) => {
