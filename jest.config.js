@@ -1,4 +1,6 @@
 export default {
-  testEnvironment: 'node',
-  transform: {},
+    transform: {},
+    testEnvironment: 'node',
+    verbose: true,
+    injectGlobals: true,
 };
