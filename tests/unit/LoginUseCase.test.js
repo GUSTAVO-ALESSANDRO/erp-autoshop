@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { LoginUseCase } from '../../src/use-cases/auth/LoginUseCase.js';
 
 describe('LoginUseCase', () => {
