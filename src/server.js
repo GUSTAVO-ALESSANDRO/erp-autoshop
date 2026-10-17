@@ -2,6 +2,7 @@ import express from 'express';
 import 'dotenv/config'; // Carrega o .env automaticamente da raiz
 import { authRoutes } from './infrastructure/http/routes/authRoutes.js';
 import { query } from  './infrastructure/database/connection.js';
+import { userRoutes } from './infrastructure/http/routes/userRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 app.use('/auth', authRoutes);
+app.use('/users', userRoutes);
 
 // Rota de origem
 app.get('/', (req, res) => {
@@ -47,3 +49,5 @@ app.get('/db', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server rodando na porta http://localhost:${PORT}`);
 });
+
+export { app };
