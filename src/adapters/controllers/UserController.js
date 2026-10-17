@@ -30,10 +30,14 @@ export class UserController {
     async getById(req, res) {
         try {
         const { id } = req.params;
-        const user = await this.userUseCase.getUserById(id);
+        const requesterUser = req.user; // Usuário logado extraído do token pelo verifyToken
+
+        const user = await this.userUseCase.getUserById(id, requesterUser);
             return res.status(200).json({ status: 'success', data: user });
         } catch (error) {
-            return res.status(404).json({ status: 'error', message: error.message });
+            // Retorna 403 se for erro de permissão ou 404 se não achar
+            const statusCode = error.message.includes('Acesso negado') ? 403 : 404;
+            return res.status(statusCode).json({ status: 'error', message: error.message });
         }
     }
 

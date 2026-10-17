@@ -46,12 +46,21 @@ export class UserUseCase {
         return await this.userRepository.findAll();
     }
 
-    // Busca um usuário específico pelo ID validando sua existência
-    async getUserById(id) {
+    // Busca um usuário específico pelo ID validando as regras de permissão
+    async getUserById(id, requesterUser) {
         const user = await this.userRepository.findById(id);
         if (!user) {
             throw new Error('Usuário não encontrado.');
         }
+
+        // Se não for ADMIN ou EMPLOYEE, só pode ver o próprio perfil
+        const isAdminOrEmployee = ['ADMIN', 'EMPLOYEE'].includes(requesterUser.role);
+        const isSelf = requesterUser.id === id;
+
+        if (!isAdminOrEmployee && !isSelf) {
+            throw new Error('Acesso negado. Você não tem permissão para visualizar este usuário.');
+        }
+
         return user;
     }
 
