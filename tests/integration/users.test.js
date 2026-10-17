@@ -226,4 +226,27 @@ describe('Integration Tests - Users CRUD & RBAC', () => {
         expect(response.status).toBe(404);
         expect(response.body.status).toBe('error');
     });
+
+    it('Deve retornar erro 403 ao tentar buscar o perfil de outro usuário sendo um CUSTOMER', async () => {
+        // Cria um segundo usuário comum para servir de "alvo"
+        const targetUser = await request(app)
+            .post('/users')
+            .send({
+                name: 'Usuário Alvo',
+                email: 'test_target@autoshop.com',
+                password: 'password123'
+            });
+        
+        const targetUserId = targetUser.body.data.id;
+
+        // Tenta buscar os dados do usuário alvo usando o token do CUSTOMER anterior
+        const response = await request(app)
+            .get(`/users/${targetUserId}`)
+            .set('Authorization', `Bearer ${customerToken}`);
+
+        // Valida que o acesso foi negado com status 403 Forbidden
+        expect(response.status).toBe(403);
+        expect(response.body.status).toBe('error');
+        expect(response.body.message).toContain('Acesso negado');
+    });
 });
