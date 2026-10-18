@@ -161,6 +161,8 @@ erDiagram
         string role "CUSTOMER | EMPLOYEE | ADMIN"
         boolean is_active
         timestamp created_at
+        string reset_password_token
+        timestamp reset_password_expires
     }
 
     PRODUCTS {
