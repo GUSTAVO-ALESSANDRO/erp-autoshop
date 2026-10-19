@@ -52,4 +52,38 @@ export class PostgresUserRepository {
         const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
         return result.rows[0] || null;
     }
+
+    // Salva o token de recuperação e a expiração no usuário
+    async updateResetToken(email, token, expiresAt) {
+        const query = `
+        UPDATE users 
+        SET reset_password_token = $1, reset_password_expires = $2
+        WHERE email = $3
+        RETURNING id, email;
+        `;
+        const result = await pool.query(query, [token, expiresAt, email]);
+        return result.rows[0] || null;
+    }
+
+    // Busca um usuário válido através do token de recuperação não expirado
+    async findByResetToken(token) {
+        const query = `
+        SELECT * FROM users 
+        WHERE reset_password_token = $1 AND reset_password_expires > NOW();
+        `;
+        const result = await pool.query(query, [token]);
+        return result.rows[0] || null;
+    }
+
+    // Atualiza a senha e limpa os campos de token temporário
+    async updatePasswordAndClearToken(userId, newPasswordHash) {
+        const query = `
+        UPDATE users 
+        SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL
+        WHERE id = $2
+        RETURNING id, email;
+        `;
+        const result = await pool.query(query, [newPasswordHash, userId]);
+        return result.rows[0] || null;
+    }
 }
