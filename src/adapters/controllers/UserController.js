@@ -6,10 +6,10 @@ export class UserController {
     // Trata a requisição HTTP POST para criação de usuários
     async create(req, res) {
         try {
-        const { name, email, password, role } = req.body;
-        const requesterUser = req.user; // Obtido através do middleware verifyToken
+            const { name, email, password, role } = req.body;
+            const requesterUser = req.user;
 
-        const user = await this.userUseCase.createUser({ name, email, password, role }, requesterUser);
+            const user = await this.userUseCase.createUser({ name, email, password, role }, requesterUser);
             return res.status(201).json({ status: 'success', data: user });
         } catch (error) {
             return res.status(400).json({ status: 'error', message: error.message });
@@ -19,10 +19,12 @@ export class UserController {
     // Trata a requisição GET para listar todos os usuários
     async getAll(req, res) {
         try {
-        const users = await this.userUseCase.getAllUsers();
+            const requesterUser = req.user;
+            const users = await this.userUseCase.getAllUsers(requesterUser);
             return res.status(200).json({ status: 'success', data: users });
         } catch (error) {
-            return res.status(500).json({ status: 'error', message: error.message });
+            const statusCode = error.message.includes('Acesso negado') ? 403 : 500;
+            return res.status(statusCode).json({ status: 'error', message: error.message });
         }
     }
 
@@ -44,23 +46,27 @@ export class UserController {
     // Trata a requisição PUT para atualizar dados do usuário
     async update(req, res) {
         try {
-        const { id } = req.params;
-        const updateData = req.body;
-        const updatedUser = await this.userUseCase.updateUser(id, updateData);
+            const { id } = req.params;
+            const updateData = req.body;
+            const requesterUser = req.user;
+            const updatedUser = await this.userUseCase.updateUser(id, updateData, requesterUser);
             return res.status(200).json({ status: 'success', data: updatedUser });
         } catch (error) {
-            return res.status(400).json({ status: 'error', message: error.message });
+            const statusCode = error.message.includes('Acesso negado') || error.message.includes('permissão') ? 403 : 400;
+            return res.status(statusCode).json({ status: 'error', message: error.message });
         }
     }
 
     // Trata a requisição DELETE para excluir um usuário
     async delete(req, res) {
         try {
-        const { id } = req.params;
-        await this.userUseCase.deleteUser(id);
+            const { id } = req.params;
+            const requesterUser = req.user;
+            await this.userUseCase.deleteUser(id, requesterUser);
             return res.status(200).json({ status: 'success', message: 'Usuário excluído com sucesso.' });
         } catch (error) {
-            return res.status(404).json({ status: 'error', message: error.message });
+            const statusCode = error.message.includes('Acesso negado') ? 403 : 404;
+            return res.status(statusCode).json({ status: 'error', message: error.message });
         }
     }
 }

@@ -32,3 +32,27 @@ export function verifyToken(req, res, next) {
         });
     }
 }
+
+// função que verifica a role se tiver token válido, se não tiver não trava (usa para cadastro)
+export function optionalVerifyToken(req, res, next) {
+    const authHeader = req.headers.authorization;
+
+    // Se não houver token, apenas segue o fluxo
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        req.user = undefined;
+        return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    try {
+        // Se houver token válido, anexa os dados
+        const decoded = tokenService.verifyToken(token);
+        req.user = decoded;
+    } catch (error) {
+        // Se o token for inválido, pode ignorar para ter cadastro público
+        req.user = undefined;
+    }
+
+    return next();
+}
