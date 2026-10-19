@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "Sistema ERP de Gestão de Oficina Mecânica com Controle de Estoque, Gerenciamento de Ordens de Serviço e Dashboard Administrativo. Desenvolvido com Node.js + Express, PostgreSQL, Docker, JWT, Clean Architecture e CI/CD automatizado via GitHub Actions.",
   "main": "index.js",
-"scripts": {
-  "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-  "lint": "eslint .",
-  "start": "node src/server.js",
-  "dev": "nodemon src/server.js"
-},
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "lint": "eslint .",
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GUSTAVO-ALESSANDRO/erp-autoshop.git"
@@ -27,7 +27,7 @@
     "dotenv": "^18.0.5",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "nodemailer": "^10.0.14",
+    "nodemailer": "^10.1.2",
     "pg": "^8.23.1"
   },
   "devDependencies": {

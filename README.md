@@ -1,6 +1,6 @@
-# 🚗 AutoCar ERP: Sistema de Gerenciamento de Oficina Mecânica
+# 🚗 AutoShop ERP: Sistema de Gerenciamento de Oficina Mecânica
 
-O **AutoCar ERP** é um sistema desenvolvido em Node.js projetado para automatizar, organizar e otimizar os processos operacionais e administrativos de oficinas mecânicas. O sistema contém os serviços de controle do estoque de produtos, abertura de Ordens de Serviço (OS), rastreabilidade de movimentações, consulta de dados automotivos oficiais e um dashboard de gestão empresarial.
+O **AutoShop ERP** é um sistema desenvolvido em Node.js projetado para automatizar, organizar e otimizar os processos operacionais e administrativos de oficinas mecânicas. O sistema contém os serviços de controle do estoque de produtos, abertura de Ordens de Serviço (OS), rastreabilidade de movimentações, consulta de dados automotivos oficiais e um dashboard de gestão empresarial.
 
 ---
 
@@ -27,7 +27,7 @@ O **AutoCar ERP** é um sistema desenvolvido em Node.js projetado para automatiz
 
 ## 🎯 Visão Geral do Sistema
 
-Oficinas mecânicas frequentemente enfrentam dificuldades para acompanhar o andamento dos consertos dos veículos, mostrar preços claros, controlar o estoque de peças e avaliar o trabalho da equipe. Com isso, para resolver esses problemas, o **AutoCar ERP** integra três pilares essenciais:
+Oficinas mecânicas frequentemente enfrentam dificuldades para acompanhar o andamento dos consertos dos veículos, mostrar preços claros, controlar o estoque de peças e avaliar o trabalho da equipe. Com isso, para resolver esses problemas, o **AutoShop ERP** integra três pilares essenciais:
 
 1. **Atendimento ao Cliente e Transparência:** Permite que o cliente acompanhe o histórioco e o status em tempo real de sua Ordem de Serviço (OS), recebendo um aviso assim que o conserto é finalizado.
 2. **Operacional e Controle de Estoque:** Facilita o registro de peças, serviços e mecânicos responsáveis em cada atendimento, além de garantir que toda peça utilizada no conserto seja descontada do estoque automaticamente.
@@ -82,7 +82,7 @@ O projeto integra duas APIs externas essenciais para agregar valor real ao siste
 
 ### 1. API Tabela FIPE ([`https://fipe.api.br/`](https://fipe.api.br/))
 - **Finalidade no Projeto:** Agilizar e padronizar o processo de abertura de Ordens de Serviço, evitando erros humanos no cadastro dos veículos na OS.
-- **Como Funciona:** Durante o cadastro de uma nova OS, a API do AutoCar ERP realiza requisições para listar marcas, modelos e anos cadastrados na Tabela FIPE nacional, isso evita erros de digitação e garante ter modelos e marcas corretas para não ter erros da oficina automotiva na hora de comprar ou usar peças para atender a OS.
+- **Como Funciona:** Durante o cadastro de uma nova OS, a API do AutoShop ERP realiza requisições para listar marcas, modelos e anos cadastrados na Tabela FIPE nacional, isso evita erros de digitação e garante ter modelos e marcas corretas para não ter erros da oficina automotiva na hora de comprar ou usar peças para atender a OS.
 
 ### 2. Nodemailer ([`https://nodemailer.com/`](https://nodemailer.com/)): Serviço de E-mail
 - **Finalidade no Projeto:** Comunicação com os usuários para segurança e notificações operacionais.
@@ -98,7 +98,7 @@ O projeto integra duas APIs externas essenciais para agregar valor real ao siste
 A aplicação foi desenhada seguindo os princípios da **Clean Architecture** (Arquitetura Limpa), dividindo as responsabilidades em camadas bem delimitadas para isolar as regras de negócio de detalhes de infraestrutura (como banco de dados, frameworks web e APIs externas).
 
 ```text
-autocar-erp/
+autoShop-erp/
 ├── .github/                  # Pipelines de CI/CD (GitHub Actions)
 ├── database/                 # Scripts de Migrations e Seeds SQL
 ├── docs/                     # Coleções de API e documentações complementares
@@ -109,6 +109,7 @@ autocar-erp/
 │   │
 │   ├── use-cases/            # [Casos de Uso] Orquestração das regras de negócio
 │   │   ├── auth/             # Casos de uso de autenticação e senha
+│   │   ├── user/             # Caso de Uso de gerenciamento de usuários
 │   │   ├── service-orders/   # Casos de uso de Ordens de Serviço
 │   │   ├── stock/            # Casos de uso de estoque
 │   │   └── dashboard/        # Casos de uso de relatórios analíticos
@@ -160,6 +161,8 @@ erDiagram
         string role "CUSTOMER | EMPLOYEE | ADMIN"
         boolean is_active
         timestamp created_at
+        string reset_password_token
+        timestamp reset_password_expires
     }
 
     PRODUCTS {
@@ -227,7 +230,7 @@ O projeto também conta com um pipeline automatizado configurado via **GitHub Ac
 3. **Análise de Qualidade (SonarQube):** Verificação de segurança, vulnerabilidades e *code smells* através de Quality Gate.
 4. **Segurança de Containers (Trivy):** Varredura de vulnerabilidades conhecidas na imagem Docker base e em pacotes.
 5. **Build e Push de Container:** Construção da imagem utilizando **Dockerfile Multi-Stage Build** e envio para o repositório de imagem.
-6. **Deploy Automatizado:** Deploy automático no ambiente de produção integrado ao banco de dados na nuvem (**Supabase**) e hospedado no **Render**, acessível publicamente através da URL de produção: [https://erp-autoshop.onrender.com](https://erp-autoshop.onrender.com).
+6. **Deploy Automatizado:** Deploy automático no ambiente de produção integrado ao banco de dados na nuvem (**Neon**) e hospedado no **Render**, acessível publicamente através da URL de produção: [https://erp-autoshop.onrender.com](https://erp-autoshop.onrender.com).
 
 ---
 
@@ -269,7 +272,7 @@ DB_HOST=postgres
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=postgres
-DB_NAME=autocar_db
+DB_NAME=autoShop_db
 
 # Autenticação e Segurança
 JWT_SECRET=sua_chave_secreta_jwt_muito_segura
@@ -280,7 +283,7 @@ SMTP_HOST=smtp.mailtrap.io
 SMTP_PORT=2525
 SMTP_USER=seu_usuario_smtp
 SMTP_PASS=sua_senha_smtp
-SMTP_FROM=nao-responda@autocar.com.br
+SMTP_FROM=nao-responda@autoShop.com.br
 ```
 
 ### Passo 3: Executar a Aplicação via Docker Compose
@@ -301,9 +304,9 @@ npm test
 
 ### 🌐 Ambiente de Produção
  
-O sistema encontra-se implantado e integrado ao banco de dados em nuvem (Supabase) através da plataforma de hospedagem Render:
+O sistema encontra-se implantado e integrado ao banco de dados em nuvem (Neon) através da plataforma de hospedagem Render:
  * **URL da Aplicação (Render):** [https://erp-autoshop.onrender.com](https://erp-autoshop.onrender.com)
- * **Banco de Dados:** Gerenciado em nuvem via **Supabase**, utilizando as mesmas variáveis de migração e conexão estruturadas no projeto.
+ * **Banco de Dados:** Gerenciado em nuvem via **Neon**, utilizando as mesmas variáveis de migração e conexão estruturadas no projeto.
 
 ---
 
@@ -311,10 +314,10 @@ O sistema encontra-se implantado e integrado ao banco de dados em nuvem (Supabas
 
 Para facilitar a verificação e testes dos endpoints da API, o repositório contém uma coleção pronta para importação localizada no diretório `/docs`:
 
-- **Caminho do arquivo:** `docs/autocar-postman-collection.json`
+- **Caminho do arquivo:** `docs/autoShop-postman-collection.json`
 - **Como importar:**
   1. Abra o Postman.
-  2. Clique em **Import** e selecione o arquivo `docs/autocar-postman-collection.json`.
+  2. Clique em **Import** e selecione o arquivo `docs/autoShop-postman-collection.json`.
   3. A coleção já inclui as variáveis de ambiente necessárias (como `{{baseUrl}}` e `{{authToken}}`) para testar o fluxo completo de autenticação, recuperação de senha, criação de ordens de serviço e consulta de estoque.
 
   ---
