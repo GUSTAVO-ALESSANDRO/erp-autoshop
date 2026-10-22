@@ -1,4 +1,6 @@
 import { randomUUID } from 'crypto';
+import { ValidationError, NotFoundError, BusinessRuleError } from '../../domain/errors/DomainErrors.js';
+import { isUuid, validatePassword } from '../../domain/validators.js';
 
 const ALLOWED_ROLES = ['CUSTOMER', 'EMPLOYEE', 'ADMIN'];
 
@@ -11,8 +13,11 @@ export class UserUseCase {
     // Criação de usuário com validação de papéis
     async createUser({ name, email, password, role }, requesterUser) {
         if (!name || !email || !password) {
-            throw new Error('Nome, e-mail e senha são obrigatórios.');
+            throw new ValidationError('Nome, e-mail e senha são obrigatórios.');
         }
+
+        // Valida o tamanho e formato da senha através do validador de domínio
+        validatePassword(password);
 
         let assignedRole = 'CUSTOMER';
 
@@ -21,7 +26,6 @@ export class UserUseCase {
                 // Admin pode definir qualquer role válida
                 assignedRole = role && ALLOWED_ROLES.includes(role) ? role : 'CUSTOMER';
             } else if (requesterUser.role === 'EMPLOYEE') {
-                
                 assignedRole = 'CUSTOMER';
             } else {
                 // Funcionário e Customer só podem criar clientes
@@ -33,12 +37,12 @@ export class UserUseCase {
         }
 
         if (!ALLOWED_ROLES.includes(assignedRole)) {
-            throw new Error('Papel (role) inválido. Deve ser CUSTOMER, EMPLOYEE ou ADMIN.');
+            throw new ValidationError('Papel (role) inválido. Deve ser CUSTOMER, EMPLOYEE ou ADMIN.');
         }
 
         const existingUser = await this.userRepository.findByEmail(email);
         if (existingUser) {
-            throw new Error('Já existe um usuário cadastrado com este e-mail.');
+            throw new BusinessRuleError('Já existe um usuário cadastrado com este e-mail.');
         }
 
         const passwordHash = await this.tokenService.hashPassword(password);
@@ -67,30 +71,34 @@ export class UserUseCase {
             return allUsers.filter(user => user.role === 'CUSTOMER');
         }
 
-        throw new Error('Acesso negado.');
+        throw new BusinessRuleError('Acesso negado.');
     }
 
     // Busca por ID com validação
     async getUserById(id, requesterUser) {
+        if (!id || !isUuid(id)) {
+            throw new ValidationError('ID de usuário inválido.');
+        }
+
         const isAdmin = requesterUser.role === 'ADMIN';
         const isEmployee = requesterUser.role === 'EMPLOYEE';
         const isSelf = requesterUser.id === id;
 
         // Se não for Admin, nem Employee e nem for o próprio perfil, não tem permissão
         if (!isAdmin && !isEmployee && !isSelf) {
-            throw new Error('Acesso negado. Você não tem permissão para visualizar usuários.');
+            throw new BusinessRuleError('Acesso negado. Você não tem permissão para visualizar usuários.');
         }
 
         // Busca o usuário no banco
         const user = await this.userRepository.findById(id);
         if (!user) {
-            throw new Error('Usuário não encontrado.');
+            throw new NotFoundError('Usuário não encontrado.');
         }
 
         // Se for Employee, ele só pode ver se o alvo for CUSTOMER
         if (isEmployee && !isAdmin && !isSelf) {
             if (user.role !== 'CUSTOMER') {
-                throw new Error('Acesso negado. Você não tem permissão para visualizar este usuário.');
+                throw new BusinessRuleError('Acesso negado. Você não tem permissão para visualizar este usuário.');
             }
         }
 
@@ -100,6 +108,10 @@ export class UserUseCase {
 
     // Atualização com regras
     async updateUser(id, updateData, requesterUser) {
+        if (!id || !isUuid(id)) {
+            throw new ValidationError('ID de usuário inválido.');
+        }
+
         // Validação de permissão e escopo antes de consultar o banco
         const isAdmin = requesterUser.role === 'ADMIN';
         const isEmployee = requesterUser.role === 'EMPLOYEE';
@@ -107,19 +119,19 @@ export class UserUseCase {
 
         // Se não for admin, nem funcionário, nem ele próprio alterando a si mesmo, bloqueia imediatamente
         if (!isAdmin && !isEmployee && !isSelf) {
-            throw new Error('Acesso negado para atualizar este usuário.');
+            throw new BusinessRuleError('Acesso negado para atualizar este usuário.');
         }
 
         // Busca o usuário no banco
         const targetUser = await this.userRepository.findById(id);
         if (!targetUser) {
-            throw new Error('Usuário não encontrado.');
+            throw new NotFoundError('Usuário não encontrado.');
         }
 
         // Validações de alteração da role
         if (updateData.role && updateData.role !== targetUser.role) {
             if (!isAdmin) {
-                throw new Error('Acesso negado. Apenas administradores podem alterar o cargo.');
+                throw new BusinessRuleError('Acesso negado. Apenas administradores podem alterar o cargo.');
             }
         }
 
@@ -138,23 +150,27 @@ export class UserUseCase {
             }
         }
 
-        throw new Error('Acesso negado para atualizar este usuário.');
+        throw new BusinessRuleError('Acesso negado para atualizar este usuário.');
     }
 
     // Exclusão com regras de segurança
     async deleteUser(id, requesterUser) {
+        if (!id || !isUuid(id)) {
+            throw new ValidationError('ID de usuário inválido.');
+        }
+
         // Validação de privilégios
         const isAdmin = requesterUser.role === 'ADMIN';
         const isEmployee = requesterUser.role === 'EMPLOYEE';
 
         if (!isAdmin && !isEmployee) {
-            throw new Error('Acesso negado para excluir este usuário.');
+            throw new BusinessRuleError('Acesso negado para excluir este usuário.');
         }
 
         // Busca o usuário alvo
         const targetUser = await this.userRepository.findById(id);
         if (!targetUser) {
-            throw new Error('Usuário não encontrado.');
+            throw new NotFoundError('Usuário não encontrado.');
         }
 
         if (isAdmin) {
@@ -168,6 +184,6 @@ export class UserUseCase {
             }
         }
 
-        throw new Error('Acesso negado para excluir este usuário.');
+        throw new BusinessRuleError('Acesso negado para excluir este usuário.');
     }
 }

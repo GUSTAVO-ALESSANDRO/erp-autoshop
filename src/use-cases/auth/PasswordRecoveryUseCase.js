@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import { ValidationError, NotFoundError } from '../../domain/errors/DomainErrors.js';
+import { validatePassword } from '../../domain/validators.js';
 
 export class PasswordRecoveryUseCase {
     constructor(userRepository, emailService, tokenService) {
@@ -9,15 +11,16 @@ export class PasswordRecoveryUseCase {
 
     // Solicita a recuperação gerando o token e enviando o e-mail
     async forgotPassword(email) {
+
         if (!email) {
-            throw new Error('O e-mail é obrigatório.');
+            throw new ValidationError('O e-mail é obrigatório.');
         }
 
         const user = await this.userRepository.findByEmail(email);
         
         // Altera a regra para retornar erro explícito caso o e-mail não exista
         if (!user) {
-            throw new Error('E-mail não cadastrado no sistema.');
+            throw new NotFoundError('E-mail não cadastrado no sistema.');
         }
 
         // Gera um token aleatório seguro e define expiração para 15 minutos
@@ -33,12 +36,14 @@ export class PasswordRecoveryUseCase {
     // Executa a troca de senha utilizando o token válido
     async resetPassword(token, newPassword) {
         if (!token || !newPassword) {
-            throw new Error('Token e nova senha são obrigatórios.');
+            throw new ValidationError('Token e nova senha são obrigatórios.');
         }
+        
+        validatePassword(newPassword);
 
         const user = await this.userRepository.findByResetToken(token);
         if (!user) {
-            throw new Error('Token inválido ou expirado.');
+            throw new NotFoundError('Token inválido ou expirado.');
         }
 
         // Gera o hash da nova senha
