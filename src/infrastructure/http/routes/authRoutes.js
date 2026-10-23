@@ -21,14 +21,14 @@ const passwordRecoveryUseCase = new PasswordRecoveryUseCase(userRepository, emai
 const passwordController = new PasswordController(passwordRecoveryUseCase);
 
 // Rotas de Autenticação
-authRoutes.post('/login', (req, res) => authController.login(req, res));
-authRoutes.post('/logout', verifyToken, (req, res) => {
+authRoutes.post('/login', (req, res, next) => authController.login(req, res, next));
+authRoutes.post('/logout', verifyToken, (req, res, next) => {
     // Como JWT é stateless, o logout bem-sucedido instrui o cliente a descartar o token
     return res.status(200).json({ status: 'success', message: 'Logout realizado com sucesso.' });
 });
 
 // Rotas de Recuperação de Senha
-authRoutes.post('/forgot-password', (req, res) => passwordController.forgotPassword(req, res));
-authRoutes.post('/reset-password', (req, res) => passwordController.resetPassword(req, res));
+authRoutes.post('/forgot-password', (req, res, next) => passwordController.forgotPassword(req, res, next));
+authRoutes.post('/reset-password', (req, res, next) => passwordController.resetPassword(req, res, next));
 
 export { authRoutes };
