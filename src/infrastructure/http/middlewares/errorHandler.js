@@ -9,7 +9,15 @@ export function errorHandler(err, req, res, next) {
     const errorName = err.name || '';
     const messageLower = (err.message || '').toLowerCase();
 
-    // 1. Validações de Dados (400)
+    // Erros de Autenticação (401 / 404 para token de recuperação)
+    if (errorName === 'AuthenticationError' || messageLower.includes('credenciais') || messageLower.includes('token de autenticação')) {
+        if (messageLower.includes('token inválido')) {
+            return res.status(404).json(body(err.message));
+        }
+        return res.status(401).json(body(err.message));
+    }
+
+    // Validações de Dados (400)
     if (errorName === 'ValidationError' || messageLower.includes('obrigatório') || messageLower.includes('inválido')) {
         return res.status(400).json({ 
             ...body(err.message), 
@@ -17,21 +25,12 @@ export function errorHandler(err, req, res, next) {
         });
     }
 
-    // 2. Erros de Autenticação (401)
-    if (errorName === 'AuthenticationError' || messageLower.includes('credenciais') || messageLower.includes('token')) {
-        // Se for token inválido/expirado de recuperação que estava dando 404 nos testes antigos, mapeamos conforme a regra:
-        if (messageLower.includes('token inválido')) {
-            return res.status(404).json(body(err.message));
-        }
-        return res.status(401).json(body(err.message));
-    }
-
-    // 3. Recursos Não Encontrados (404)
+    // Recursos Não Encontrados (404)
     if (errorName === 'NotFoundError' || messageLower.includes('não encontrado') || messageLower.includes('não cadastrado')) {
         return res.status(404).json(body(err.message));
     }
 
-    // 4. Regras de Negócio e Permissões de Acesso (403 ou 422)
+    // Regras de Negócio e Permissões de Acesso (403 ou 422)
     if (errorName === 'BusinessRuleError' || errorName === 'DomainError' || messageLower.includes('acesso negado')) {
         const isForbidden = messageLower.includes('acesso negado') || 
                             messageLower.includes('permissão') ||
@@ -45,7 +44,7 @@ export function errorHandler(err, req, res, next) {
         return res.status(400).json(body('JSON inválido no corpo da requisição.'));
     }
 
-    // Se cair aqui, é um erro real não mapeado
-    console.error('❌ ERRO 500 NÃO CAPTURADO:', err);
+    //Log do erro
+    console.error('ERRO:', err);
     return res.status(500).json(body('Erro interno do servidor.'));
 }

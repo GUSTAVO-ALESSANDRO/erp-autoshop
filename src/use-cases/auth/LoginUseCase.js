@@ -14,14 +14,14 @@ export class LoginUseCase {
         throw new ValidationError('E-mail e senha são obrigatórios.');
     }
 
-    // Busca o usuário no banco pelo e-mail fornecido
+    // Busca o usuário no banco pelo e-mail fornecido e retorna a entidade User
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
         throw new AuthenticationError('Credenciais inválidas.');
     }
 
-    // Compara a senha informada com o hash armazenado
-    const isPasswordValid = await this.tokenService.comparePassword(password, user.password_hash);
+    // Compara a senha informada utilizando o comportamento encapsulado na Entidade User
+    const isPasswordValid = await user.comparePassword(password, this.tokenService);
     if (!isPasswordValid) {
         throw new AuthenticationError('Credenciais inválidas.');
     }

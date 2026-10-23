@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { User } from '../../domain/entities/User.js';
 import { ValidationError, NotFoundError, BusinessRuleError } from '../../domain/errors/DomainErrors.js';
 import { isUuid, validatePassword } from '../../domain/validators.js';
 
@@ -16,23 +17,19 @@ export class UserUseCase {
             throw new ValidationError('Nome, e-mail e senha são obrigatórios.');
         }
 
-        // Valida o tamanho e formato da senha através do validador de domínio
         validatePassword(password);
 
         let assignedRole = 'CUSTOMER';
 
         if (requesterUser) {
             if (requesterUser.role === 'ADMIN') {
-                // Admin pode definir qualquer role válida
                 assignedRole = role && ALLOWED_ROLES.includes(role) ? role : 'CUSTOMER';
             } else if (requesterUser.role === 'EMPLOYEE') {
                 assignedRole = 'CUSTOMER';
             } else {
-                // Funcionário e Customer só podem criar clientes
                 assignedRole = 'CUSTOMER';
             }
         } else {
-            // Cadastro público só cria CUSTOMER
             assignedRole = 'CUSTOMER';
         }
 
@@ -48,7 +45,8 @@ export class UserUseCase {
         const passwordHash = await this.tokenService.hashPassword(password);
         const userId = randomUUID();
 
-        return await this.userRepository.create({
+        // Cria a instância da Entidade de Domínio
+        const userEntity = new User({
             id: userId,
             name,
             email,
@@ -56,22 +54,25 @@ export class UserUseCase {
             role: assignedRole,
             isActive: true
         });
+
+        const createdUser = await this.userRepository.create(userEntity);
+        return createdUser.toPublicJSON();
     }
 
     // Listagem de usuários com restrição por role
     async getAllUsers(requesterUser) {
+        let users = [];
         if (requesterUser.role === 'ADMIN') {
-            return await this.userRepository.findAll();
-        }
-
-        // Funcionário só pode listar clientes
-        if (requesterUser.role === 'EMPLOYEE') {
+            users = await this.userRepository.findAll();
+        } else if (requesterUser.role === 'EMPLOYEE') {
             const allUsers = await this.userRepository.findAll();
-            // Retorna apenas clientes
-            return allUsers.filter(user => user.role === 'CUSTOMER');
+            users = allUsers.filter(user => user.role === 'CUSTOMER');
+        } else {
+            throw new BusinessRuleError('Acesso negado.');
         }
 
-        throw new BusinessRuleError('Acesso negado.');
+        // Retorna todos sanitizados
+        return users.map(user => user.toPublicJSON());
     }
 
     // Busca por ID com validação
@@ -84,26 +85,22 @@ export class UserUseCase {
         const isEmployee = requesterUser.role === 'EMPLOYEE';
         const isSelf = requesterUser.id === id;
 
-        // Se não for Admin, nem Employee e nem for o próprio perfil, não tem permissão
         if (!isAdmin && !isEmployee && !isSelf) {
             throw new BusinessRuleError('Acesso negado. Você não tem permissão para visualizar usuários.');
         }
 
-        // Busca o usuário no banco
         const user = await this.userRepository.findById(id);
         if (!user) {
             throw new NotFoundError('Usuário não encontrado.');
         }
 
-        // Se for Employee, ele só pode ver se o alvo for CUSTOMER
         if (isEmployee && !isAdmin && !isSelf) {
             if (user.role !== 'CUSTOMER') {
                 throw new BusinessRuleError('Acesso negado. Você não tem permissão para visualizar este usuário.');
             }
         }
 
-        // Se passou por tudo, retorna o usuário
-        return user;
+        return user.toPublicJSON();
     }
 
     // Atualização com regras
@@ -112,23 +109,19 @@ export class UserUseCase {
             throw new ValidationError('ID de usuário inválido.');
         }
 
-        // Validação de permissão e escopo antes de consultar o banco
         const isAdmin = requesterUser.role === 'ADMIN';
         const isEmployee = requesterUser.role === 'EMPLOYEE';
         const isSelf = requesterUser.id === id;
 
-        // Se não for admin, nem funcionário, nem ele próprio alterando a si mesmo, bloqueia imediatamente
         if (!isAdmin && !isEmployee && !isSelf) {
             throw new BusinessRuleError('Acesso negado para atualizar este usuário.');
         }
 
-        // Busca o usuário no banco
         const targetUser = await this.userRepository.findById(id);
         if (!targetUser) {
             throw new NotFoundError('Usuário não encontrado.');
         }
 
-        // Validações de alteração da role
         if (updateData.role && updateData.role !== targetUser.role) {
             if (!isAdmin) {
                 throw new BusinessRuleError('Acesso negado. Apenas administradores podem alterar o cargo.');
@@ -136,17 +129,16 @@ export class UserUseCase {
         }
 
         if (isAdmin || isSelf) {
-            // Cliente ou funcionário comum não muda a própria role
             if (!isAdmin && isSelf) delete updateData.role; 
-            return await this.userRepository.update(id, updateData);
+            const updated = await this.userRepository.update(id, updateData);
+            return updated.toPublicJSON();
         }
 
         if (isEmployee) {
-            // Funcionário só pode atualizar dados de clientes, nunca de outros funcionários ou admins
             if (targetUser.role === 'CUSTOMER') {
-                // Funcionário não altera roles
                 delete updateData.role;
-                return await this.userRepository.update(id, updateData);
+                const updated = await this.userRepository.update(id, updateData);
+                return updated.toPublicJSON();
             }
         }
 
@@ -159,7 +151,6 @@ export class UserUseCase {
             throw new ValidationError('ID de usuário inválido.');
         }
 
-        // Validação de privilégios
         const isAdmin = requesterUser.role === 'ADMIN';
         const isEmployee = requesterUser.role === 'EMPLOYEE';
 
@@ -167,7 +158,6 @@ export class UserUseCase {
             throw new BusinessRuleError('Acesso negado para excluir este usuário.');
         }
 
-        // Busca o usuário alvo
         const targetUser = await this.userRepository.findById(id);
         if (!targetUser) {
             throw new NotFoundError('Usuário não encontrado.');
@@ -178,7 +168,6 @@ export class UserUseCase {
         }
 
         if (isEmployee) {
-            // Funcionário só pode deletar clientes (CUSTOMER)
             if (targetUser.role === 'CUSTOMER') {
                 return await this.userRepository.delete(id);
             }

@@ -1,4 +1,5 @@
 import { JwtTokenService } from '../../security/JwtTokenService.js';
+import { AuthenticationError } from '../../../domain/errors/DomainErrors.js';
 
 const tokenService = new JwtTokenService();
 
@@ -8,10 +9,7 @@ export function verifyToken(req, res, next) {
 
     // Verifica se o cabeçalho Authorization foi enviado corretamente
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-            status: 'error',
-            message: 'Token de autenticação não fornecido ou formato inválido.'
-        });
+        return next(new AuthenticationError('Token de autenticação não fornecido ou formato inválido.'));
     }
 
     // Extrai apenas o token da string "Bearer <token>"
@@ -25,11 +23,8 @@ export function verifyToken(req, res, next) {
         req.user = decoded; 
         return next(); // Prossegue para o próximo middleware ou controller
     } catch (error) {
-        // Retorna erro se o token for inválido ou estiver expirado
-        return res.status(401).json({
-            status: 'error',
-            message: 'Token inválido ou expirado.'
-        });
+        // Repassa o erro para o errorHandler centralizado
+        return next(new AuthenticationError('Token inválido ou expirado.'));
     }
 }
 
