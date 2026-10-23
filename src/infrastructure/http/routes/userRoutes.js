@@ -12,10 +12,10 @@ const tokenService = new JwtTokenService();
 const userUseCase = new UserUseCase(userRepository, tokenService);
 const userController = new UserController(userUseCase);
 
-userRoutes.post('/cadastro', optionalVerifyToken, (req, res) => userController.create(req, res));
-userRoutes.get('/', verifyToken, (req, res) => userController.getAll(req, res));
-userRoutes.get('/:id', verifyToken, (req, res) => userController.getById(req, res));
-userRoutes.put('/:id', verifyToken, (req, res) => userController.update(req, res));
-userRoutes.delete('/:id', verifyToken, (req, res) => userController.delete(req, res));
+userRoutes.post('/cadastro', optionalVerifyToken, (req, res, next) => userController.create(req, res, next));
+userRoutes.get('/', verifyToken, (req, res, next) => userController.getAll(req, res, next));
+userRoutes.get('/:id', verifyToken, (req, res, next) => userController.getById(req, res, next));
+userRoutes.put('/:id', verifyToken, (req, res, next) => userController.update(req, res, next));
+userRoutes.delete('/:id', verifyToken, (req, res, next) => userController.delete(req, res, next));
 
 export { userRoutes };
