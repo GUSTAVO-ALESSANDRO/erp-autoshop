@@ -368,6 +368,27 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
         expect(response.status).toBe(404);
     });
 
+    // TESTES DE VALIDAÇÃO DE DOMÍNIO
+    it('Deve retornar erro ao tentar cadastrar usuário com nome menor que 3 caracteres', async () => {
+        const response = await request(app).post('/users/cadastro').send({
+            name: 'Ab', // Menor que 3 caracteres
+            email: 'test_nomecurto@autoshop.com',
+            password: 'password123'
+        });
+        expect(response.status).toBe(400);
+        expect(response.body.status).toBe('error');
+    });
+
+    it('Deve retornar erro ao tentar cadastrar usuário com e-mail inválido ou malformado', async () => {
+        const response = await request(app).post('/users/cadastro').send({
+            name: 'Usuario Valido',
+            email: 'emailinvalido-sem-arroba', // E-mail sem @
+            password: 'password123'
+        });
+        expect(response.status).toBe(400);
+        expect(response.body.status).toBe('error');
+    });
+
     // FLUXO DE RECUPERAÇÃO DE SENHA
 
     /*
