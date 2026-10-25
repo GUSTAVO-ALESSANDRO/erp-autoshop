@@ -1,7 +1,7 @@
 -- Habilita extensão para gerar IDs únicos (UUID)
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 1. Tabela de Usuários (Clientes, Funcionários e Admins)
+-- Tabela de Usuários (Clientes, Funcionários e Admins)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Tabela de Produtos
+-- Tabela de Produtos
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Tabela de Movimentações de Estoque
+-- Tabela de Movimentações de Estoque
 CREATE TABLE IF NOT EXISTS stock_movements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS stock_movements (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Tabela de Ordens de Serviço (OS)
+-- Tabela de Ordens de Serviço (OS)
 CREATE TABLE IF NOT EXISTS service_orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) UNIQUE NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS service_orders (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Tabela de Itens da Ordem de Serviço (Peças usadas)
+-- Tabela de Itens da Ordem de Serviço (Peças usadas)
 CREATE TABLE IF NOT EXISTS service_order_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     os_id UUID NOT NULL REFERENCES service_orders(id) ON DELETE CASCADE,
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS service_order_items (
     unit_sell_price NUMERIC(10, 2) NOT NULL
 );
 
--- 6. Tabela de Funcionários alocados na OS
+-- Tabela de Funcionários alocados na OS
 CREATE TABLE IF NOT EXISTS service_order_employees (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     os_id UUID NOT NULL REFERENCES service_orders(id) ON DELETE CASCADE,

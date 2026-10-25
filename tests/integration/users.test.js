@@ -370,6 +370,11 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
 
     // FLUXO DE RECUPERAÇÃO DE SENHA
 
+    /*
+
+    JA FUNCIONA, TRAVEI PARA NÃO FICAR MANDANDO VÁRIOS EMAILS NOS TESTES,
+    VOU DESCOMENTAR NO FIM DO DESENVOLVIMENTO DESSE BACK END
+
     it('Deve solicitar recuperação de senha com sucesso enviando e-mail', async () => {
         const response = await request(app).post('/auth/forgot-password').send({
             email: 'test_customer@autoshop.com'
@@ -394,5 +399,5 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
         });
         expect(response.status).toBe(400);
         expect(response.body.status).toBe('error');
-    });
+    });*/
 });

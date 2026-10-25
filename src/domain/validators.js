@@ -11,3 +11,17 @@ export function validatePassword(password) {
         throw new ValidationError('A senha deve ter entre 8 e 72 caracteres.');
     }
 }
+
+// Valida se o número é maior ou igual ao mínimo 
+export function validateMinNumber(value, fieldName, min = 0) {
+    if (value === undefined || value === null || typeof value !== 'number' || isNaN(value) || value < min) {
+        throw new ValidationError(`O valor do campo ${fieldName} deve ser maior ou igual a ${min}.`);
+    }
+}
+
+// Valida se o nome tem a quantidade mínima de caracteres
+export function validateMinName(value, fieldName = 'nome', min = 3) {
+    if (!value || typeof value !== 'string' || value.trim().length < min) {
+        throw new ValidationError(`O campo '${fieldName}' deve ter no mínimo ${min} caracteres.`);
+    }
+}
