@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { User } from '../../domain/entities/User.js';
 import { ValidationError, NotFoundError, BusinessRuleError } from '../../domain/errors/DomainErrors.js';
-import { isUuid, validatePassword } from '../../domain/validators.js';
+import { isUuid, validatePassword, validateMinName, validateEmail } from '../../domain/validators.js';
 
 const ALLOWED_ROLES = ['CUSTOMER', 'EMPLOYEE', 'ADMIN'];
 
@@ -17,14 +17,17 @@ export class UserUseCase {
             throw new ValidationError('Nome, e-mail e senha são obrigatórios.');
         }
 
+        // Validações rigorosas de domínio
+        validateMinName(name, 'nome', 3);
+        validateEmail(email);
         validatePassword(password);
 
         let assignedRole = 'CUSTOMER';
 
         if (requesterUser) {
-            if (requesterUser.role === 'ADMIN') {
+            if (requesterUser.isAdmin()) {
                 assignedRole = role && ALLOWED_ROLES.includes(role) ? role : 'CUSTOMER';
-            } else if (requesterUser.role === 'EMPLOYEE') {
+            } else if (requesterUser.isEmployee()) {
                 assignedRole = 'CUSTOMER';
             } else {
                 assignedRole = 'CUSTOMER';
@@ -62,9 +65,9 @@ export class UserUseCase {
     // Listagem de usuários com restrição por role
     async getAllUsers(requesterUser) {
         let users = [];
-        if (requesterUser.role === 'ADMIN') {
+        if (requesterUser.isAdmin()) {
             users = await this.userRepository.findAll();
-        } else if (requesterUser.role === 'EMPLOYEE') {
+        } else if (requesterUser.isEmployee()) {
             const allUsers = await this.userRepository.findAll();
             users = allUsers.filter(user => user.role === 'CUSTOMER');
         } else {
@@ -81,8 +84,8 @@ export class UserUseCase {
             throw new ValidationError('ID de usuário inválido.');
         }
 
-        const isAdmin = requesterUser.role === 'ADMIN';
-        const isEmployee = requesterUser.role === 'EMPLOYEE';
+        const isAdmin = requesterUser.isAdmin();
+        const isEmployee = requesterUser.isEmployee();
         const isSelf = requesterUser.id === id;
 
         if (!isAdmin && !isEmployee && !isSelf) {
@@ -95,7 +98,7 @@ export class UserUseCase {
         }
 
         if (isEmployee && !isAdmin && !isSelf) {
-            if (user.role !== 'CUSTOMER') {
+            if (!user.isCustomer()) {
                 throw new BusinessRuleError('Acesso negado. Você não tem permissão para visualizar este usuário.');
             }
         }
@@ -109,8 +112,16 @@ export class UserUseCase {
             throw new ValidationError('ID de usuário inválido.');
         }
 
-        const isAdmin = requesterUser.role === 'ADMIN';
-        const isEmployee = requesterUser.role === 'EMPLOYEE';
+        // Validações se houverem campos de nome ou email no update
+        if (updateData.name !== undefined) {
+            validateMinName(updateData.name, 'nome', 3);
+        }
+        if (updateData.email !== undefined) {
+            validateEmail(updateData.email);
+        }
+
+        const isAdmin = requesterUser.isAdmin();
+        const isEmployee = requesterUser.isEmployee();
         const isSelf = requesterUser.id === id;
 
         if (!isAdmin && !isEmployee && !isSelf) {
@@ -135,7 +146,7 @@ export class UserUseCase {
         }
 
         if (isEmployee) {
-            if (targetUser.role === 'CUSTOMER') {
+            if (targetUser.isCustomer()) {
                 delete updateData.role;
                 const updated = await this.userRepository.update(id, updateData);
                 return updated.toPublicJSON();
@@ -151,8 +162,8 @@ export class UserUseCase {
             throw new ValidationError('ID de usuário inválido.');
         }
 
-        const isAdmin = requesterUser.role === 'ADMIN';
-        const isEmployee = requesterUser.role === 'EMPLOYEE';
+        const isAdmin = requesterUser.isAdmin();
+        const isEmployee = requesterUser.isEmployee();
 
         if (!isAdmin && !isEmployee) {
             throw new BusinessRuleError('Acesso negado para excluir este usuário.');
@@ -168,7 +179,7 @@ export class UserUseCase {
         }
 
         if (isEmployee) {
-            if (targetUser.role === 'CUSTOMER') {
+            if (targetUser.isCustomer()) {
                 return await this.userRepository.delete(id);
             }
         }
