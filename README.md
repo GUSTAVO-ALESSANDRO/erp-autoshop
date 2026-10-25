@@ -111,6 +111,7 @@ autoShop-erp/
 │   │   ├── auth/             # Casos de uso de autenticação e senha
 │   │   ├── user/             # Caso de Uso de gerenciamento de usuários
 │   │   ├── service-orders/   # Casos de uso de Ordens de Serviço
+│   │   ├── product/          # Casos de uso de Produtos
 │   │   ├── stock/            # Casos de uso de estoque
 │   │   └── dashboard/        # Casos de uso de relatórios analíticos
 │   │

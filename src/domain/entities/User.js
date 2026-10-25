@@ -31,6 +31,11 @@ export class User {
         return this.role === 'EMPLOYEE';
     }
 
+    //verifica se o usuário é cliente
+    isCustomer() {
+        return this.role === 'CUSTOMER';
+    }
+
     // Compara a senha informada com o hash armazenado de forma segura na entidade
     async comparePassword(password, tokenService) {
         return await tokenService.comparePassword(password, this.passwordHash);

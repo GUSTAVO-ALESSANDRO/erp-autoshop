@@ -1,5 +1,6 @@
 import { JwtTokenService } from '../../security/JwtTokenService.js';
 import { AuthenticationError } from '../../../domain/errors/DomainErrors.js';
+import { User } from '../../../domain/entities/User.js';
 
 const tokenService = new JwtTokenService();
 
@@ -19,8 +20,8 @@ export function verifyToken(req, res, next) {
         // Valida o token e recupera os dados decodificados
         const decoded = tokenService.verifyToken(token);
         
-        // Anexa os dados do usuário na requisição para uso posterior nas rotas
-        req.user = decoded; 
+        // Anexa a instância da Entidade User na requisição para ter acesso aos métodos de role
+        req.user = new User(decoded);
         return next(); // Prossegue para o próximo middleware ou controller
     } catch (error) {
         // Repassa o erro para o errorHandler centralizado
@@ -43,7 +44,7 @@ export function optionalVerifyToken(req, res, next) {
     try {
         // Se houver token válido, anexa os dados
         const decoded = tokenService.verifyToken(token);
-        req.user = decoded;
+        req.user = new User(decoded);
     } catch (error) {
         // Se o token for inválido, pode ignorar para ter cadastro público
         req.user = undefined;
