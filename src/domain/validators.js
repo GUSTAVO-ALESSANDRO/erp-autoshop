@@ -33,3 +33,15 @@ export function validateEmail(email) {
         throw new ValidationError('O formato do e-mail é inválido.');
     }
 }
+
+export function parseNonNegativeAmount(value, fieldName) {
+    if ((typeof value !== 'number' && typeof value !== 'string') || value === '') {
+        throw new ValidationError(`O campo ${fieldName} deve ser um número maior ou igual a zero.`);
+    }
+
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) {
+        throw new ValidationError(`O campo ${fieldName} deve ser um número maior ou igual a zero.`);
+    }
+    return Math.round((amount + Number.EPSILON) * 100) / 100;
+}

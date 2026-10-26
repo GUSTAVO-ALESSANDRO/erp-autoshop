@@ -11,3 +11,4 @@ export class AuthenticationError extends DomainError {} // 401
 export class NotFoundError extends DomainError {} // 404
 export class BusinessRuleError extends DomainError {} // 422
 export class InsufficientStockError extends BusinessRuleError {} // 422
+export class ExternalServiceError extends DomainError {} // 502

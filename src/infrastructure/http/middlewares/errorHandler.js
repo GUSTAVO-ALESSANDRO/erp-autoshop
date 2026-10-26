@@ -30,8 +30,12 @@ export function errorHandler(err, req, res, next) {
         return res.status(404).json(body(err.message));
     }
 
+    if (errorName === 'ExternalServiceError') {
+        return res.status(502).json(body(err.message));
+    }
+
     // Regras de Negócio e Permissões de Acesso (403 ou 422)
-    if (errorName === 'BusinessRuleError' || errorName === 'DomainError' || messageLower.includes('acesso negado')) {
+    if (errorName === 'BusinessRuleError' || errorName === 'InsufficientStockError' || errorName === 'DomainError' || messageLower.includes('acesso negado')) {
         const isForbidden = messageLower.includes('acesso negado') || 
                             messageLower.includes('permissão') ||
                             messageLower.includes('proibido');
