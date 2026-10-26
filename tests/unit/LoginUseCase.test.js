@@ -1,18 +1,19 @@
 import { jest } from '@jest/globals';
 import { LoginUseCase } from '../../src/use-cases/auth/LoginUseCase.js';
+import { User } from '../../src/domain/entities/User.js';
 
 describe('LoginUseCase', () => {
   // Testa o fluxo de sucesso ao realizar o login
   it('Deve autenticar com sucesso e retornar o token', async () => {
-    // Cria um mock simulando o repositório de usuários
+    // Cria um mock simulando o repositório de usuários retornando uma Entidade User real
     const mockUserRepository = {
-      findByEmail: jest.fn().mockResolvedValue({
+      findByEmail: jest.fn().mockResolvedValue(new User({
         id: '1',
         name: 'Admin',
         email: 'admin@autocare.com',
-        password_hash: 'hashed_password',
+        passwordHash: 'hashed_password',
         role: 'ADMIN'
-      })
+      }))
     };
 
     // Cria um mock simulando o serviço de criptografia/token

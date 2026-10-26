@@ -43,4 +43,15 @@ export class EmailService {
 
         return await this.transporter.sendMail(mailOptions);
     }
+
+    async sendServiceOrderCompletedEmail(toEmail, orderCode, vehicle, totalAmount) {
+        const mailOptions = {
+            from: '"AutoShop ERP" <no-reply@autoshop.com>',
+            to: toEmail,
+            subject: `Ordem de Serviço ${orderCode} concluída`,
+            text: `A ordem de serviço ${orderCode} para o veículo ${vehicle} foi concluída. Valor total: R$ ${Number(totalAmount).toFixed(2)}.`
+        };
+
+        return await this.transporter.sendMail(mailOptions);
+    }
 }

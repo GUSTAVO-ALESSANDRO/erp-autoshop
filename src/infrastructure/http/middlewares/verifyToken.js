@@ -1,4 +1,6 @@
 import { JwtTokenService } from '../../security/JwtTokenService.js';
+import { AuthenticationError } from '../../../domain/errors/DomainErrors.js';
+import { User } from '../../../domain/entities/User.js';
 
 const tokenService = new JwtTokenService();
 
@@ -8,10 +10,7 @@ export function verifyToken(req, res, next) {
 
     // Verifica se o cabeçalho Authorization foi enviado corretamente
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-            status: 'error',
-            message: 'Token de autenticação não fornecido ou formato inválido.'
-        });
+        return next(new AuthenticationError('Token de autenticação não fornecido ou formato inválido.'));
     }
 
     // Extrai apenas o token da string "Bearer <token>"
@@ -21,15 +20,12 @@ export function verifyToken(req, res, next) {
         // Valida o token e recupera os dados decodificados
         const decoded = tokenService.verifyToken(token);
         
-        // Anexa os dados do usuário na requisição para uso posterior nas rotas
-        req.user = decoded; 
+        // Anexa a instância da Entidade User na requisição para ter acesso aos métodos de role
+        req.user = new User(decoded);
         return next(); // Prossegue para o próximo middleware ou controller
     } catch (error) {
-        // Retorna erro se o token for inválido ou estiver expirado
-        return res.status(401).json({
-            status: 'error',
-            message: 'Token inválido ou expirado.'
-        });
+        // Repassa o erro para o errorHandler centralizado
+        return next(new AuthenticationError('Token inválido ou expirado.'));
     }
 }
 
@@ -48,7 +44,7 @@ export function optionalVerifyToken(req, res, next) {
     try {
         // Se houver token válido, anexa os dados
         const decoded = tokenService.verifyToken(token);
-        req.user = decoded;
+        req.user = new User(decoded);
     } catch (error) {
         // Se o token for inválido, pode ignorar para ter cadastro público
         req.user = undefined;

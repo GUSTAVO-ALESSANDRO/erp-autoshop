@@ -3,6 +3,11 @@ import 'dotenv/config'; // Carrega o .env automaticamente da raiz
 import { authRoutes } from './infrastructure/http/routes/authRoutes.js';
 import { query } from  './infrastructure/database/connection.js';
 import { userRoutes } from './infrastructure/http/routes/userRoutes.js';
+import { notFoundHandler, errorHandler } from './infrastructure/http/middlewares/errorHandler.js';
+import { productRoutes } from './infrastructure/http/routes/productRoutes.js';
+import { fipeRoutes } from './infrastructure/http/routes/fipeRoutes.js';
+import { serviceOrderRoutes } from './infrastructure/http/routes/serviceOrderRoutes.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,6 +16,13 @@ app.use(express.json());
 
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
+app.use('/products', productRoutes);
+app.use('/fipe', fipeRoutes);
+app.use('/service-orders', serviceOrderRoutes);
+
+//Rotas de tradução de erros
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // Rota de origem
 app.get('/', (req, res) => {
