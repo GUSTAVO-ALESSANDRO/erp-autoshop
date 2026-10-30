@@ -2,10 +2,11 @@ import { JwtTokenService } from '../../security/JwtTokenService.js';
 import { AuthenticationError } from '../../../domain/errors/DomainErrors.js';
 import { User } from '../../../domain/entities/User.js';
 
-const tokenService = new JwtTokenService();
+// Instância padrão do serviço de token
+const defaultTokenService = new JwtTokenService();
 
 // Middleware para interceptar rotas e validar o token JWT nas requisições
-export function verifyToken(req, res, next) {
+export function verifyToken(req, res, next, tokenService = defaultTokenService) {
     const authHeader = req.headers.authorization;
 
     // Verifica se o cabeçalho Authorization foi enviado corretamente
@@ -30,7 +31,7 @@ export function verifyToken(req, res, next) {
 }
 
 // função que verifica a role se tiver token válido, se não tiver não trava (usa para cadastro)
-export function optionalVerifyToken(req, res, next) {
+export function optionalVerifyToken(req, res, next, tokenService = defaultTokenService) {
     const authHeader = req.headers.authorization;
 
     // Se não houver token, apenas segue o fluxo

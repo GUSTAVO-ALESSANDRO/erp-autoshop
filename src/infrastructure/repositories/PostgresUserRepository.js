@@ -6,37 +6,17 @@ export class PostgresUserRepository {
     async findByEmail(email) {
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
         if (!result.rows[0]) return null;
-        return new User({
-            id: result.rows[0].id,
-            name: result.rows[0].name,
-            email: result.rows[0].email,
-            passwordHash: result.rows[0].password_hash,
-            role: result.rows[0].role,
-            isActive: result.rows[0].is_active,
-            createdAt: result.rows[0].created_at,
-            resetPasswordToken: result.rows[0].reset_password_token,
-            resetPasswordExpires: result.rows[0].reset_password_expires
-        });
+        return this.toEntity(result.rows[0]);
     }
 
     // Busca por ID retornando a Entidade User
     async findById(id) {
         const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
         if (!result.rows[0]) return null;
-        return new User({
-            id: result.rows[0].id,
-            name: result.rows[0].name,
-            email: result.rows[0].email,
-            passwordHash: result.rows[0].password_hash,
-            role: result.rows[0].role,
-            isActive: result.rows[0].is_active,
-            createdAt: result.rows[0].created_at,
-            resetPasswordToken: result.rows[0].reset_password_token,
-            resetPasswordExpires: result.rows[0].reset_password_expires
-        });
+        return this.toEntity(result.rows[0]);
     }
 
-    // Insere aceitando a Entidade User e retorna uma nova Entidade
+    // Insere aceitando a Entidade User
     async create(userEntity) {
         const query = `
         INSERT INTO users (id, name, email, password_hash, role, is_active, created_at)
@@ -52,30 +32,30 @@ export class PostgresUserRepository {
             userEntity.isActive
         ];
         const result = await pool.query(query, values);
-        const row = result.rows[0];
-        return new User({
-            id: row.id,
-            name: row.name,
-            email: row.email,
-            passwordHash: row.password_hash,
-            role: row.role,
-            isActive: row.is_active,
-            createdAt: row.created_at
-        });
+        return this.toEntity(result.rows[0]);
     }
 
-    // Retorna a lista completa mapeada para Entidades User
-    async findAll() {
-        const result = await pool.query('SELECT * FROM users ORDER BY created_at DESC');
-        return result.rows.map(row => new User({
-            id: row.id,
-            name: row.name,
-            email: row.email,
-            passwordHash: row.password_hash,
-            role: row.role,
-            isActive: row.is_active,
-            createdAt: row.created_at
-        }));
+    // Retorna a lista de usuários aceitando filtros opcionais por name, email e role
+    async findAll(filters = {}) {
+        let query = 'SELECT * FROM users WHERE 1=1';
+        const params = [];
+
+        if (filters.name) {
+            params.push(`%${filters.name}%`);
+            query += ` AND name ILIKE $${params.length}`;
+        }
+        if (filters.email) {
+            params.push(`%${filters.email}%`);
+            query += ` AND email ILIKE $${params.length}`;
+        }
+        if (filters.role) {
+            params.push(filters.role);
+            query += ` AND role = $${params.length}`;
+        }
+
+        query += ' ORDER BY created_at DESC';
+        const result = await pool.query(query, params);
+        return result.rows.map(row => this.toEntity(row));
     }
 
     // Atualiza e retorna a Entidade User atualizada
@@ -92,16 +72,7 @@ export class PostgresUserRepository {
         const values = [name, email, role, isActive, id];
         const result = await pool.query(query, values);
         if (!result.rows[0]) return null;
-        const row = result.rows[0];
-        return new User({
-            id: row.id,
-            name: row.name,
-            email: row.email,
-            passwordHash: row.password_hash,
-            role: row.role,
-            isActive: row.is_active,
-            createdAt: row.created_at
-        });
+        return this.toEntity(result.rows[0]);
     }
 
     // Remove um usuário
@@ -119,18 +90,7 @@ export class PostgresUserRepository {
         `;
         const result = await pool.query(query, [token, expiresAt, email]);
         if (!result.rows[0]) return null;
-        const row = result.rows[0];
-        return new User({
-            id: row.id,
-            name: row.name,
-            email: row.email,
-            passwordHash: row.password_hash,
-            role: row.role,
-            isActive: row.is_active,
-            createdAt: row.created_at,
-            resetPasswordToken: row.reset_password_token,
-            resetPasswordExpires: row.reset_password_expires
-        });
+        return this.toEntity(result.rows[0]);
     }
 
     async findByResetToken(token) {
@@ -139,18 +99,7 @@ export class PostgresUserRepository {
             [token]
         );
         if (!result.rows[0]) return null;
-        const row = result.rows[0];
-        return new User({
-            id: row.id,
-            name: row.name,
-            email: row.email,
-            passwordHash: row.password_hash,
-            role: row.role,
-            isActive: row.is_active,
-            createdAt: row.created_at,
-            resetPasswordToken: row.reset_password_token,
-            resetPasswordExpires: row.reset_password_expires
-        });
+        return this.toEntity(result.rows[0]);
     }
 
     async updatePasswordAndClearToken(userId, newPasswordHash) {
@@ -162,7 +111,11 @@ export class PostgresUserRepository {
         `;
         const result = await pool.query(query, [newPasswordHash, userId]);
         if (!result.rows[0]) return null;
-        const row = result.rows[0];
+        return this.toEntity(result.rows[0]);
+    }
+
+    // Mapeador auxiliar de linhas do banco para a entidade User
+    toEntity(row) {
         return new User({
             id: row.id,
             name: row.name,
