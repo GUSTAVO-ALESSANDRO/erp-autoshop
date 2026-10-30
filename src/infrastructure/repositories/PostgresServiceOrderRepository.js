@@ -2,6 +2,7 @@ import { pool } from '../database/connection.js';
 import { ServiceOrder } from '../../domain/entities/ServiceOrder.js';
 import { ServiceOrderItem } from '../../domain/entities/ServiceOrderItem.js';
 import { ServiceOrderEmployee } from '../../domain/entities/ServiceOrderEmployee.js';
+import { NotFoundError, InsufficientStockError } from '../../domain/errors/DomainErrors.js';
 
 export class PostgresServiceOrderRepository {
     // Insere a nova Ordem de Serviço no banco de dados
@@ -21,6 +22,47 @@ export class PostgresServiceOrderRepository {
         ];
         const res = await dbClient.query(query, values);
         return this.toEntity(res.rows[0]);
+    }
+
+    // Obtém o próximo número sequencial da OS aplicando bloqueio consultivo (advisory lock)
+    async getNextSequence(year, dbClient = pool) {
+        await dbClient.query('SELECT pg_advisory_xact_lock($1, $2)', [51703, year]);
+        const sequenceResult = await dbClient.query(
+            `SELECT COALESCE(MAX(CAST(SPLIT_PART(code, '-', 3) AS INTEGER)), 0) AS max_sequence
+             FROM service_orders
+             WHERE code LIKE $1 AND SPLIT_PART(code, '-', 3) ~ '^[0-9]+$'`,
+            [`OS-${year}-%`]
+        );
+        return Number(sequenceResult.rows[0].max_sequence) + 1;
+    }
+
+    // Executa a verificação de estoque com FOR UPDATE e realiza a baixa transacional
+    async processStockDeduction(os, dbClient = pool) {
+        const items = [...os.items].sort((left, right) => left.product_id.localeCompare(right.product_id));
+        for (const item of items) {
+            const prodRes = await dbClient.query(
+                'SELECT current_stock FROM products WHERE id = $1 FOR UPDATE',
+                [item.product_id]
+            );
+            if (!prodRes.rows[0]) {
+                throw new NotFoundError(`Produto ${item.product_id} da Ordem de Serviço não encontrado.`);
+            }
+
+            const currentStock = Number(prodRes.rows[0].current_stock);
+            if (currentStock < item.quantity) {
+                throw new InsufficientStockError(
+                    `Estoque insuficiente para o produto ID ${item.product_id}. Disponível: ${currentStock}, Necessário: ${item.quantity}`
+                );
+            }
+
+            const balanceAfter = currentStock - item.quantity;
+            await dbClient.query('UPDATE products SET current_stock = $1 WHERE id = $2', [balanceAfter, item.product_id]);
+            await dbClient.query(
+                `INSERT INTO stock_movements (id, product_id, type, quantity, balance_after, reason)
+                 VALUES (gen_random_uuid(), $1, 'SAIDA', $2, $3, $4)`,
+                [item.product_id, item.quantity, balanceAfter, `Uso na Ordem de Serviço ${os.code}`]
+            );
+        }
     }
 
     // Busca a OS por ID recuperando também itens e funcionários via JOIN
@@ -55,29 +97,53 @@ export class PostgresServiceOrderRepository {
         return os;
     }
 
-    // Retorna listagem de OS com suporte a filtros opcionais
+    // Retorna listagem otimizada de OS em lote utilizando agregação JSON do Postgres (Elimina problema de N+1 queries)
     async findAll({ status, customer_id } = {}) {
-        let query = `SELECT * FROM service_orders WHERE 1=1`;
+        let query = `
+            SELECT 
+                so.*,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', soi.id,
+                            'os_id', soi.os_id,
+                            'product_id', soi.product_id,
+                            'quantity', soi.quantity,
+                            'unit_cost_price', soi.unit_cost_price,
+                            'unit_sell_price', soi.unit_sell_price,
+                            'product_name', p.name
+                        )
+                    ) FILTER (WHERE soi.id IS NULL), '[]'
+                ) as items_json
+            FROM service_orders so
+            LEFT JOIN service_order_items soi ON so.id = soi.os_id
+            LEFT JOIN products p ON soi.product_id = p.id
+            WHERE 1=1
+        `;
         const params = [];
 
         if (status) {
-            query += ` AND status = $${params.length + 1}`;
+            query += ` AND so.status = $${params.length + 1}`;
             params.push(status);
         }
         if (customer_id) {
-            query += ` AND customer_id = $${params.length + 1}`;
+            query += ` AND so.customer_id = $${params.length + 1}`;
             params.push(customer_id);
         }
 
-        query += ` ORDER BY created_at DESC`;
+        query += ` GROUP BY so.id ORDER BY so.created_at DESC`;
         const res = await pool.query(query, params);
         
-        const orders = [];
-        for (const row of res.rows) {
-            const os = await this.findById(row.id);
-            orders.push(os);
-        }
-        return orders;
+        return res.rows.map(row => {
+            const os = this.toEntity(row);
+            // Se a agregação retornar itens válidos, mapeia para entidades de itens
+            if (row.items_json && Array.isArray(row.items_json) && row.items_json[0]?.id) {
+                os.items = row.items_json.map(itemRow => new ServiceOrderItem(itemRow));
+            } else {
+                os.items = [];
+            }
+            return os;
+        });
     }
 
     // Adiciona um item congelando os preços unitários no momento da adição
