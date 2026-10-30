@@ -132,6 +132,15 @@ describe('Integration Tests - Products CRUD & Stock', () => {
             expect(response.body.data.sell_price).toBe(90.00);
         });
 
+        it('ADMIN não deve atualizar estoque pelo CRUD de produtos', async () => {
+            const response = await request(app)
+                .put(`/products/${createdProductId}`)
+                .set('Authorization', `Bearer ${adminToken}`)
+                .send({ current_stock: 50 });
+
+            expect(response.status).toBe(400);
+        });
+
         it('ADMIN deve conseguir realizar a exclusão lógica (inativação) do produto', async () => {
             const response = await request(app)
                 .delete(`/products/${createdProductId}`)
