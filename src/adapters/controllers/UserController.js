@@ -1,3 +1,5 @@
+import { UserPresenter } from '../presenters/UserPresenter.js';
+
 export class UserController {
     constructor(userUseCase) {
         this.userUseCase = userUseCase;
@@ -10,7 +12,7 @@ export class UserController {
             const requesterUser = req.user;
 
             const user = await this.userUseCase.createUser({ name, email, password, role }, requesterUser);
-            return res.status(201).json({ status: 'success', data: user });
+            return res.status(201).json({ status: 'success', data: UserPresenter.toPublic(user) });
         } catch (error) {
             return next(error);
         }
@@ -19,9 +21,14 @@ export class UserController {
     // Trata a requisição GET para listar todos os usuários
     async getAll(req, res, next) {
         try {
+            const filters = {
+                name: req.query.name,
+                email: req.query.email,
+                role: req.query.role
+            };
             const requesterUser = req.user;
-            const users = await this.userUseCase.getAllUsers(requesterUser);
-            return res.status(200).json({ status: 'success', data: users });
+            const users = await this.userUseCase.getAllUsers(filters, requesterUser);
+            return res.status(200).json({ status: 'success', data: users.map(UserPresenter.toPublic) });
         } catch (error) {
             return next(error);
         }
@@ -36,7 +43,7 @@ export class UserController {
             const requesterUser = req.user;
 
             const user = await this.userUseCase.getUserById(id, requesterUser);
-            return res.status(200).json({ status: 'success', data: user });
+            return res.status(200).json({ status: 'success', data: UserPresenter.toPublic(user) });
         } catch (error) {
             return next(error);
         }
@@ -49,7 +56,7 @@ export class UserController {
             const updateData = req.body;
             const requesterUser = req.user;
             const updatedUser = await this.userUseCase.updateUser(id, updateData, requesterUser);
-            return res.status(200).json({ status: 'success', data: updatedUser });
+            return res.status(200).json({ status: 'success', data: UserPresenter.toPublic(updatedUser) });
         } catch (error) {
             return next(error);
         }
@@ -61,7 +68,7 @@ export class UserController {
             const { id } = req.params;
             const requesterUser = req.user;
             await this.userUseCase.deleteUser(id, requesterUser);
-            return res.status(200).json({ status: 'success', message: 'Usuário excluído com sucesso.' });
+            return res.status(200).json({ status: 'success', message: 'Usuário desativado com sucesso.' });
         } catch (error) {
             return next(error);
         }

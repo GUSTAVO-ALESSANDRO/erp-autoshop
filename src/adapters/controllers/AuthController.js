@@ -1,3 +1,5 @@
+import { UserPresenter } from '../presenters/UserPresenter.js';
+
 export class AuthController {
   constructor(loginUseCase) {
     // Injeção do caso de uso de login
@@ -13,7 +15,10 @@ export class AuthController {
       const result = await this.loginUseCase.execute({ email, password });
       
       // Retorna sucesso HTTP 200 com os dados e o token
-      return res.status(200).json(result);
+      return res.status(200).json({
+        ...result,
+        user: UserPresenter.toPublic(result.user)
+      });
     } catch (error) {
       // Delega o erro para o errorHandler
       return next(error);
