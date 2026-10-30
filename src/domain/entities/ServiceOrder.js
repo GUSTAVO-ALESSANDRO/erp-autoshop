@@ -34,26 +34,4 @@ export class ServiceOrder {
         this.items = items;
         this.employees = employees;
     }
-
-    // Retorna o objeto sanitizado para visualização pública e externa
-    toPublicJSON() {
-        return {
-            id: this.id,
-            code: this.code,
-            customer_id: this.customer_id,
-            vehicle_brand: this.vehicle_brand,
-            vehicle_model: this.vehicle_model,
-            vehicle_year: this.vehicle_year,
-            vehicle_fipe_code: this.vehicle_fipe_code,
-            title: this.title,
-            description: this.description,
-            status: this.status,
-            labor_cost: this.labor_cost,
-            discount: this.discount,
-            total_amount: this.total_amount,
-            created_at: this.created_at,
-            items: this.items.map(item => item.toJSON ? item.toJSON() : item),
-            employees: this.employees.map(emp => emp.toJSON ? emp.toJSON() : emp)
-        };
-    }
 }

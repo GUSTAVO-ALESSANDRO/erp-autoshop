@@ -1,3 +1,5 @@
+import { ProductPresenter } from '../presenters/ProductPresenter.js';
+
 export class ProductController {
     constructor(productUseCase) {
         this.productUseCase = productUseCase;
@@ -13,7 +15,7 @@ export class ProductController {
                 { name, description, cost_price, sell_price, current_stock },
                 requesterUser
             );
-            return res.status(201).json({ status: 'success', data: product });
+            return res.status(201).json({ status: 'success', data: ProductPresenter.toPrivate(product) });
         } catch (error) {
             return next(error);
         }
@@ -24,7 +26,11 @@ export class ProductController {
         try {
             const requesterUser = req.user;
             const products = await this.productUseCase.getAllProducts(requesterUser);
-            return res.status(200).json({ status: 'success', data: products });
+            const isStaff = requesterUser?.isAdmin() || requesterUser?.isEmployee();
+            const data = products.map(product => (
+                isStaff ? ProductPresenter.toPrivate(product) : ProductPresenter.toPublic(product)
+            ));
+            return res.status(200).json({ status: 'success', data });
         } catch (error) {
             return next(error);
         }
@@ -37,7 +43,9 @@ export class ProductController {
             const requesterUser = req.user;
 
             const product = await this.productUseCase.getProductById(id, requesterUser);
-            return res.status(200).json({ status: 'success', data: product });
+            const isStaff = requesterUser?.isAdmin() || requesterUser?.isEmployee();
+            const data = isStaff ? ProductPresenter.toPrivate(product) : ProductPresenter.toPublic(product);
+            return res.status(200).json({ status: 'success', data });
         } catch (error) {
             return next(error);
         }
@@ -51,7 +59,7 @@ export class ProductController {
             const requesterUser = req.user;
 
             const updatedProduct = await this.productUseCase.updateProduct(id, updateData, requesterUser);
-            return res.status(200).json({ status: 'success', data: updatedProduct });
+            return res.status(200).json({ status: 'success', data: ProductPresenter.toPrivate(updatedProduct) });
         } catch (error) {
             return next(error);
         }
@@ -64,7 +72,11 @@ export class ProductController {
             const requesterUser = req.user;
 
             const deletedProduct = await this.productUseCase.deleteProduct(id, requesterUser);
-            return res.status(200).json({ status: 'success', message: 'Produto inativado com sucesso.', data: deletedProduct });
+            return res.status(200).json({
+                status: 'success',
+                message: 'Produto inativado com sucesso.',
+                data: ProductPresenter.toPrivate(deletedProduct)
+            });
         } catch (error) {
             return next(error);
         }
