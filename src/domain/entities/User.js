@@ -1,4 +1,5 @@
 export class User {
+    // Inicializa as propriedades essenciais da entidade de usuário
     constructor({
         id,
         name,
@@ -21,35 +22,18 @@ export class User {
         this.resetPasswordExpires = resetPasswordExpires;
     }
 
-    // verifica se o usuário é administrador
+    // Verifica se o usuário possui perfil de administrador
     isAdmin() {
         return this.role === 'ADMIN';
     }
 
-    //verifica se o usuário é funcionário
+    // Verifica se o usuário possui perfil de funcionário
     isEmployee() {
         return this.role === 'EMPLOYEE';
     }
 
-    //verifica se o usuário é cliente
+    // Verifica se o usuário possui perfil de cliente
     isCustomer() {
         return this.role === 'CUSTOMER';
-    }
-
-    // Compara a senha informada com o hash armazenado de forma segura na entidade
-    async comparePassword(password, tokenService) {
-        return await tokenService.comparePassword(password, this.passwordHash);
-    }
-
-    // Limpa o objeto para uso externo, removendo dados sensíveis como hash de senha e tokens
-    toPublicJSON() {
-        return {
-            id: this.id,
-            name: this.name,
-            email: this.email,
-            role: this.role,
-            isActive: this.isActive,
-            createdAt: this.createdAt
-        };
     }
 }
