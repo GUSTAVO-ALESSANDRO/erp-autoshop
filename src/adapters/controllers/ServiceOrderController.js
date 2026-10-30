@@ -1,3 +1,5 @@
+import { ServiceOrderPresenter } from '../presenters/ServiceOrderPresenter.js';
+
 export class ServiceOrderController {
     constructor(serviceOrderUseCase) {
         this.serviceOrderUseCase = serviceOrderUseCase;
@@ -9,7 +11,7 @@ export class ServiceOrderController {
             const osData = req.body;
             const requesterUser = req.user;
             const created = await this.serviceOrderUseCase.createServiceOrder(osData, requesterUser);
-            return res.status(201).json({ status: 'success', data: created });
+            return res.status(201).json({ status: 'success', data: ServiceOrderPresenter.toPublic(created) });
         } catch (error) {
             return next(error);
         }
@@ -21,7 +23,10 @@ export class ServiceOrderController {
             const filters = req.query;
             const requesterUser = req.user;
             const orders = await this.serviceOrderUseCase.getAllServiceOrders(filters, requesterUser);
-            return res.status(200).json({ status: 'success', data: orders });
+            return res.status(200).json({
+                status: 'success',
+                data: orders.map(ServiceOrderPresenter.toPublic)
+            });
         } catch (error) {
             return next(error);
         }
@@ -33,7 +38,7 @@ export class ServiceOrderController {
             const { id } = req.params;
             const requesterUser = req.user;
             const os = await this.serviceOrderUseCase.getServiceOrderById(id, requesterUser);
-            return res.status(200).json({ status: 'success', data: os });
+            return res.status(200).json({ status: 'success', data: ServiceOrderPresenter.toPublic(os) });
         } catch (error) {
             return next(error);
         }
@@ -46,7 +51,7 @@ export class ServiceOrderController {
             const itemData = req.body;
             const requesterUser = req.user;
             const updatedOs = await this.serviceOrderUseCase.addItemToServiceOrder(id, itemData, requesterUser);
-            return res.status(200).json({ status: 'success', data: updatedOs });
+            return res.status(200).json({ status: 'success', data: ServiceOrderPresenter.toPublic(updatedOs) });
         } catch (error) {
             return next(error);
         }
@@ -59,7 +64,7 @@ export class ServiceOrderController {
             const empData = req.body;
             const requesterUser = req.user;
             const updatedOs = await this.serviceOrderUseCase.addEmployeeToServiceOrder(id, empData, requesterUser);
-            return res.status(200).json({ status: 'success', data: updatedOs });
+            return res.status(200).json({ status: 'success', data: ServiceOrderPresenter.toPublic(updatedOs) });
         } catch (error) {
             return next(error);
         }
@@ -72,7 +77,7 @@ export class ServiceOrderController {
             const { status } = req.body;
             const requesterUser = req.user;
             const updatedOs = await this.serviceOrderUseCase.updateStatus(id, status, requesterUser);
-            return res.status(200).json({ status: 'success', data: updatedOs });
+            return res.status(200).json({ status: 'success', data: ServiceOrderPresenter.toPublic(updatedOs) });
         } catch (error) {
             return next(error);
         }

@@ -20,8 +20,13 @@ export class LoginUseCase {
         throw new AuthenticationError('Credenciais inválidas.');
     }
 
-    // Compara a senha informada utilizando o comportamento encapsulado na Entidade User
-    const isPasswordValid = await user.comparePassword(password, this.tokenService);
+    // Valida se a conta do usuário está ativa
+    if (user.isActive === false) {
+        throw new AuthenticationError('Conta desativada.');
+    }
+
+    // Compara a senha informada utilizando o serviço de token injetado
+    const isPasswordValid = await this.tokenService.comparePassword(password, user.passwordHash);
     if (!isPasswordValid) {
         throw new AuthenticationError('Credenciais inválidas.');
     }
@@ -32,14 +37,9 @@ export class LoginUseCase {
         role: user.role
     });
 
-    // Retorna os dados públicos do usuário e o token gerado
+    // Retorna a entidade de usuário e o token; a camada HTTP aplica a apresentação pública
     return {
-        user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role
-        },
+        user,
         token
     };
   }

@@ -1,20 +1,27 @@
 import { randomUUID } from 'crypto';
 import { ServiceOrder } from '../../domain/entities/ServiceOrder.js';
 import { ServiceOrderItem } from '../../domain/entities/ServiceOrderItem.js';
-import { ValidationError, NotFoundError, BusinessRuleError, InsufficientStockError } from '../../domain/errors/DomainErrors.js';
+import { ValidationError, NotFoundError, BusinessRuleError } from '../../domain/errors/DomainErrors.js';
 import { isUuid, validateMinName, parseNonNegativeAmount } from '../../domain/validators.js';
-import { pool } from '../../infrastructure/database/connection.js';
 
 export class ServiceOrderUseCase {
-    constructor(serviceOrderRepository, productRepository, userRepository, emailService) {
+    // Construtor atualizado recebendo os repositórios por contrato e o gerenciador de transações
+    constructor(serviceOrderRepository, productRepository, userRepository, emailService, transactionManager) {
         this.serviceOrderRepository = serviceOrderRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
+        this.transactionManager = transactionManager;
     }
 
-    // Cria uma nova OS gerando o código sequencial e validando papéis
+    // Cria uma nova OS gerando o código sequencial via transação isolada na infraestrutura
     async createServiceOrder(orderData = {}, requesterUser) {
+
+        // Bloqueia clientes de criarem OS
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
+            throw new BusinessRuleError('Acesso negado. Apenas funcionários ou administradores podem criar Ordens de Serviço.');
+        }
+        
         const {
             customer_id,
             vehicle_brand,
@@ -29,7 +36,7 @@ export class ServiceOrderUseCase {
         let targetCustomerId = customer_id;
 
         // Se o solicitante for cliente, força o ID para o seu próprio usuário
-        if (requesterUser.isCustomer()) {
+        if (requesterUser?.isCustomer()) {
             targetCustomerId = requesterUser.id;
         } else {
             if (!targetCustomerId || !isUuid(targetCustomerId)) {
@@ -70,27 +77,13 @@ export class ServiceOrderUseCase {
             total_amount: laborCostNum - discountNum
         });
 
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            await client.query('SELECT pg_advisory_xact_lock($1, $2)', [51703, year]);
-            const sequenceResult = await client.query(
-                `SELECT COALESCE(MAX(CAST(SPLIT_PART(code, '-', 3) AS INTEGER)), 0) AS max_sequence
-                 FROM service_orders
-                 WHERE code LIKE $1 AND SPLIT_PART(code, '-', 3) ~ '^[0-9]+$'`,
-                [`OS-${year}-%`]
-            );
-            const nextSequence = Number(sequenceResult.rows[0].max_sequence) + 1;
+        // Delega a atomicidade e o controle de concorrência transacional para o transactionManager
+        return await this.transactionManager.transaction(async (client) => {
+            const nextSequence = await this.serviceOrderRepository.getNextSequence(year, client);
             serviceOrderEntity.code = `OS-${year}-${String(nextSequence).padStart(3, '0')}`;
             const created = await this.serviceOrderRepository.create(serviceOrderEntity, client);
-            await client.query('COMMIT');
-            return created.toPublicJSON();
-        } catch (error) {
-            await client.query('ROLLBACK');
-            throw error;
-        } finally {
-            client.release();
-        }
+            return created;
+        });
     }
 
     // Retorna listagem de OS aplicando restrições de visibilidade por perfil
@@ -98,12 +91,12 @@ export class ServiceOrderUseCase {
         const queryFilters = { ...filters };
 
         // Clientes só conseguem enxergar as próprias OS
-        if (requesterUser.isCustomer()) {
+        if (requesterUser?.isCustomer()) {
             queryFilters.customer_id = requesterUser.id;
         }
 
         const orders = await this.serviceOrderRepository.findAll(queryFilters);
-        return orders.map(o => o.toPublicJSON());
+        return orders;
     }
 
     // Busca OS por ID validando se o usuário possui permissão de leitura
@@ -117,17 +110,17 @@ export class ServiceOrderUseCase {
             throw new NotFoundError('Ordem de Serviço não encontrada.');
         }
 
-        if (requesterUser.isCustomer() && os.customer_id !== requesterUser.id) {
+        if (requesterUser?.isCustomer() && os.customer_id !== requesterUser.id) {
             throw new BusinessRuleError('Acesso negado. Você só pode visualizar suas próprias Ordens de Serviço.');
         }
 
-        return os.toPublicJSON();
+        return os;
     }
 
-    // Adiciona uma peça à OS e congela seus valores unitários para o histórico
+    // Adiciona uma peça à OS e congela seus valores unitários para o histórico de forma atômica
     async addItemToServiceOrder(osId, itemData = {}, requesterUser) {
         const { product_id, quantity } = itemData || {};
-        if (!requesterUser.isAdmin() && !requesterUser.isEmployee()) {
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
             throw new BusinessRuleError('Acesso negado. Apenas funcionários ou administradores podem adicionar peças.');
         }
 
@@ -155,15 +148,15 @@ export class ServiceOrderUseCase {
             unit_sell_price: product.sell_price
         });
 
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
+        return await this.transactionManager.transaction(async (client) => {
             const os = await this.serviceOrderRepository.findById(osId, client, true);
             if (!os) {
                 throw new NotFoundError('Ordem de Serviço não encontrada.');
             }
-            if (!['ORCAMENTO', 'APROVADO'].includes(os.status)) {
-                throw new BusinessRuleError('Não é permitido adicionar peças em Ordens de Serviço em execução ou concluídas.');
+            
+            // Permite adicionar em ORCAMENTO, APROVADO ou EM_EXECUCAO, bloqueando apenas em OS concluídas ou canceladas
+            if (['CONCLUIDO', 'CANCELADO'].includes(os.status)) {
+                throw new BusinessRuleError('Não é permitido adicionar peças em Ordens de Serviço concluídas ou canceladas.');
             }
 
             await this.serviceOrderRepository.addItem(osId, itemEntity, client);
@@ -175,19 +168,13 @@ export class ServiceOrderUseCase {
             }
             await this.serviceOrderRepository.updateTotalAmount(osId, subtotal - updatedOs.discount, client);
             const finalOs = await this.serviceOrderRepository.findById(osId, client);
-            await client.query('COMMIT');
-            return finalOs.toPublicJSON();
-        } catch (error) {
-            await client.query('ROLLBACK');
-            throw error;
-        } finally {
-            client.release();
-        }
+            return finalOs;
+        });
     }
 
-    // Aloca um funcionário/mecânico à Ordem de Serviço
+    // Aloca um funcionário/mecânico à Ordem de Serviço (com validação de estado e duplicidade)
     async addEmployeeToServiceOrder(osId, { employee_id }, requesterUser) {
-        if (!requesterUser.isAdmin() && !requesterUser.isEmployee()) {
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
             throw new BusinessRuleError('Acesso negado.');
         }
 
@@ -198,6 +185,17 @@ export class ServiceOrderUseCase {
         const os = await this.serviceOrderRepository.findById(osId);
         if (!os) throw new NotFoundError('Ordem de Serviço não encontrada.');
 
+        // Valida se a OS já está concluída ou cancelada
+        if (['CONCLUIDO', 'CANCELADO'].includes(os.status)) {
+            throw new BusinessRuleError('Não é permitido alocar funcionários em Ordens de Serviço concluídas ou canceladas.');
+        }
+
+        // Valida se o funcionário já está alocado nesta OS
+        const alreadyAllocated = os.employees && os.employees.some(emp => (emp.id === employee_id || emp.employee_id === employee_id));
+        if (alreadyAllocated) {
+            throw new BusinessRuleError('Este funcionário já está alocado nesta Ordem de Serviço.');
+        }
+
         const employee = await this.userRepository.findById(employee_id);
         if (!employee || (!employee.isEmployee() && !employee.isAdmin())) {
             throw new ValidationError('O usuário informado não é um funcionário válido.');
@@ -205,12 +203,12 @@ export class ServiceOrderUseCase {
 
         await this.serviceOrderRepository.addEmployee(osId, employee_id);
         const finalOs = await this.serviceOrderRepository.findById(osId);
-        return finalOs.toPublicJSON();
+        return finalOs;
     }
 
     // Gerencia transição de status da OS com baixa transacional ACID e e-mails
     async updateStatus(osId, newStatus, requesterUser) {
-        if (!requesterUser.isAdmin() && !requesterUser.isEmployee()) {
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
             throw new BusinessRuleError('Acesso negado para alterar o status da OS.');
         }
 
@@ -222,16 +220,13 @@ export class ServiceOrderUseCase {
             throw new ValidationError('Status inválido.');
         }
 
-        const client = await pool.connect();
         let os;
-        try {
-            await client.query('BEGIN');
+        await this.transactionManager.transaction(async (client) => {
             os = await this.serviceOrderRepository.findById(osId, client, true);
             if (!os) throw new NotFoundError('Ordem de Serviço não encontrada.');
 
             if (newStatus === os.status) {
-                await client.query('COMMIT');
-                return os.toPublicJSON();
+                return os;
             }
 
             const allowedTransitions = {
@@ -245,43 +240,15 @@ export class ServiceOrderUseCase {
                 throw new BusinessRuleError(`Não é permitido alterar o status de ${os.status} para ${newStatus}.`);
             }
 
+            // Delega a baixa de estoque transacional para o repositório
             if (newStatus === 'EM_EXECUCAO') {
-                const items = [...os.items].sort((left, right) => left.product_id.localeCompare(right.product_id));
-                for (const item of items) {
-                    const prodRes = await client.query(
-                        'SELECT current_stock FROM products WHERE id = $1 FOR UPDATE',
-                        [item.product_id]
-                    );
-                    if (!prodRes.rows[0]) {
-                        throw new NotFoundError(`Produto ${item.product_id} da Ordem de Serviço não encontrado.`);
-                    }
-
-                    const currentStock = Number(prodRes.rows[0].current_stock);
-                    if (currentStock < item.quantity) {
-                        throw new InsufficientStockError(
-                            `Estoque insuficiente para o produto ID ${item.product_id}. Disponível: ${currentStock}, Necessário: ${item.quantity}`
-                        );
-                    }
-
-                    const balanceAfter = currentStock - item.quantity;
-                    await client.query('UPDATE products SET current_stock = $1 WHERE id = $2', [balanceAfter, item.product_id]);
-                    await client.query(
-                        `INSERT INTO stock_movements (id, product_id, type, quantity, balance_after, reason)
-                         VALUES (gen_random_uuid(), $1, 'SAIDA', $2, $3, $4)`,
-                        [item.product_id, item.quantity, balanceAfter, `Uso na Ordem de Serviço ${os.code}`]
-                    );
-                }
+                await this.serviceOrderRepository.processStockDeduction(os, client);
             }
 
             await this.serviceOrderRepository.updateStatus(osId, newStatus, client);
-            await client.query('COMMIT');
-        } catch (error) {
-            await client.query('ROLLBACK');
-            throw error;
-        } finally {
-            client.release();
-        }
+        });
 
+        // Envio de e-mail assíncrono após o commit da transação
         if (newStatus === 'CONCLUIDO' && os.status !== 'CONCLUIDO') {
             try {
                 const customer = await this.userRepository.findById(os.customer_id);
@@ -299,6 +266,6 @@ export class ServiceOrderUseCase {
         }
 
         const finalOs = await this.serviceOrderRepository.findById(osId);
-        return finalOs.toPublicJSON();
+        return finalOs;
     }
 }

@@ -3,8 +3,8 @@ import { Product } from '../../domain/entities/Product.js';
 
 export class PostgresProductRepository {
     // Busca por ID retornando a Entidade Product
-    async findById(id) {
-        const result = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
+    async findById(id, dbClient = pool) {
+        const result = await dbClient.query('SELECT * FROM products WHERE id = $1', [id]);
         if (!result.rows[0]) return null;
         return new Product({
             id: result.rows[0].id,
@@ -14,12 +14,12 @@ export class PostgresProductRepository {
             sell_price: result.rows[0].sell_price,
             current_stock: result.rows[0].current_stock,
             is_active: result.rows[0].is_active,
-            createdAt: result.rows[0].created_at
+            created_at: result.rows[0].created_at
         });
     }
 
     // Insere aceitando a Entidade Product e retorna uma nova Entidade
-    async create(productEntity) {
+    async create(productEntity, dbClient = pool) {
         const query = `
         INSERT INTO products (id, name, description, cost_price, sell_price, current_stock, is_active, created_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
@@ -34,8 +34,17 @@ export class PostgresProductRepository {
             productEntity.current_stock,
             productEntity.is_active,
         ];
-        const result = await pool.query(query, values);
-        const row = result.rows[0];
+        const result = await dbClient.query(query, values);
+
+        // Se houver estoque inicial maior que zero, registra o histórico em stock_movements
+        if (productEntity.current_stock > 0) {
+            await dbClient.query(
+                `INSERT INTO stock_movements (id, product_id, type, quantity, balance_after, reason, created_at)
+                 VALUES (gen_random_uuid(), $1, 'ENTRADA', $2, $2, 'Estoque inicial de cadastro', NOW())`,
+                [productEntity.id, productEntity.current_stock]
+            );
+        }
+
         return new Product({
             id: result.rows[0].id,
             name: result.rows[0].name,
@@ -59,7 +68,7 @@ export class PostgresProductRepository {
             sell_price: row.sell_price,
             current_stock: row.current_stock,
             is_active: row.is_active,
-            createdAt: row.created_at
+            created_at: row.created_at
         }));
     }
 
@@ -88,7 +97,7 @@ export class PostgresProductRepository {
             sell_price: row.sell_price,
             current_stock: row.current_stock,
             is_active: row.is_active,
-            createdAt: row.created_at
+            created_at: row.created_at
         });
     }
 }

@@ -9,11 +9,9 @@ export function errorHandler(err, req, res, next) {
     const errorName = err.name || '';
     const messageLower = (err.message || '').toLowerCase();
 
-    // Erros de Autenticação (401 / 404 para token de recuperação)
-    if (errorName === 'AuthenticationError' || messageLower.includes('credenciais') || messageLower.includes('token de autenticação')) {
-        if (messageLower.includes('token inválido')) {
-            return res.status(404).json(body(err.message));
-        }
+    // Erros de Autenticação (401 Unauthorized para qualquer falha de token ou credencial)
+    if (errorName === 'AuthenticationError' || messageLower.includes('credenciais') || messageLower.includes('token de autenticação') ||
+            messageLower.includes('token inválido')) {
         return res.status(401).json(body(err.message));
     }
 
@@ -35,7 +33,8 @@ export function errorHandler(err, req, res, next) {
     }
 
     // Regras de Negócio e Permissões de Acesso (403 ou 422)
-    if (errorName === 'BusinessRuleError' || errorName === 'InsufficientStockError' || errorName === 'DomainError' || messageLower.includes('acesso negado')) {
+    if (errorName === 'BusinessRuleError' || errorName === 'InsufficientStockError' || errorName === 'DomainError' ||
+                messageLower.includes('acesso negado')) {
         const isForbidden = messageLower.includes('acesso negado') || 
                             messageLower.includes('permissão') ||
                             messageLower.includes('proibido');
@@ -48,7 +47,7 @@ export function errorHandler(err, req, res, next) {
         return res.status(400).json(body('JSON inválido no corpo da requisição.'));
     }
 
-    //Log do erro
+    // Log do erro
     console.error('ERRO:', err);
     return res.status(500).json(body('Erro interno do servidor.'));
 }

@@ -22,19 +22,9 @@ export class UserUseCase {
         validateEmail(email);
         validatePassword(password);
 
-        let assignedRole = 'CUSTOMER';
-
-        if (requesterUser) {
-            if (requesterUser.isAdmin()) {
-                assignedRole = role && ALLOWED_ROLES.includes(role) ? role : 'CUSTOMER';
-            } else if (requesterUser.isEmployee()) {
-                assignedRole = 'CUSTOMER';
-            } else {
-                assignedRole = 'CUSTOMER';
-            }
-        } else {
-            assignedRole = 'CUSTOMER';
-        }
+        const assignedRole = requesterUser?.isAdmin() && role && ALLOWED_ROLES.includes(role)
+            ? role
+            : 'CUSTOMER';
 
         if (!ALLOWED_ROLES.includes(assignedRole)) {
             throw new ValidationError('Papel (role) inválido. Deve ser CUSTOMER, EMPLOYEE ou ADMIN.');
@@ -59,23 +49,22 @@ export class UserUseCase {
         });
 
         const createdUser = await this.userRepository.create(userEntity);
-        return createdUser.toPublicJSON();
+        return createdUser;
     }
 
     // Listagem de usuários com restrição por role
-    async getAllUsers(requesterUser) {
-        let users = [];
-        if (requesterUser.isAdmin()) {
-            users = await this.userRepository.findAll();
-        } else if (requesterUser.isEmployee()) {
-            const allUsers = await this.userRepository.findAll();
-            users = allUsers.filter(user => user.role === 'CUSTOMER');
-        } else {
+    async getAllUsers(filters = {}, requesterUser) {
+        const queryFilters = { ...filters };
+
+        if (requesterUser.isEmployee()) {
+            queryFilters.role = 'CUSTOMER'; // Funcionários enxergam apenas clientes
+        } else if (!requesterUser.isAdmin()) {
             throw new BusinessRuleError('Acesso negado.');
         }
 
-        // Retorna todos sanitizados
-        return users.map(user => user.toPublicJSON());
+        const users = await this.userRepository.findAll(queryFilters);
+
+        return users;
     }
 
     // Busca por ID com validação
@@ -103,7 +92,7 @@ export class UserUseCase {
             }
         }
 
-        return user.toPublicJSON();
+        return user;
     }
 
     // Atualização com regras
@@ -142,21 +131,21 @@ export class UserUseCase {
         if (isAdmin || isSelf) {
             if (!isAdmin && isSelf) delete updateData.role; 
             const updated = await this.userRepository.update(id, updateData);
-            return updated.toPublicJSON();
+            return updated;
         }
 
         if (isEmployee) {
             if (targetUser.isCustomer()) {
                 delete updateData.role;
                 const updated = await this.userRepository.update(id, updateData);
-                return updated.toPublicJSON();
+                return updated;
             }
         }
 
         throw new BusinessRuleError('Acesso negado para atualizar este usuário.');
     }
 
-    // Exclusão com regras de segurança
+    // Exclusão lógica (inativação) com regras de segurança
     async deleteUser(id, requesterUser) {
         if (!id || !isUuid(id)) {
             throw new ValidationError('ID de usuário inválido.');
@@ -175,12 +164,14 @@ export class UserUseCase {
         }
 
         if (isAdmin) {
-            return await this.userRepository.delete(id);
+            const updated = await this.userRepository.update(id, { isActive: false });
+            return updated;
         }
 
         if (isEmployee) {
             if (targetUser.isCustomer()) {
-                return await this.userRepository.delete(id);
+                const updated = await this.userRepository.update(id, { isActive: false });
+                return updated;
             }
         }
 

@@ -1,30 +1,21 @@
 import express from 'express';
-import 'dotenv/config'; // Carrega o .env automaticamente da raiz
+import 'dotenv/config';
 import { authRoutes } from './infrastructure/http/routes/authRoutes.js';
-import { query } from  './infrastructure/database/connection.js';
+import { query } from './infrastructure/database/connection.js';
 import { userRoutes } from './infrastructure/http/routes/userRoutes.js';
 import { notFoundHandler, errorHandler } from './infrastructure/http/middlewares/errorHandler.js';
 import { productRoutes } from './infrastructure/http/routes/productRoutes.js';
 import { fipeRoutes } from './infrastructure/http/routes/fipeRoutes.js';
 import { serviceOrderRoutes } from './infrastructure/http/routes/serviceOrderRoutes.js';
-
+import { stockRoutes } from './infrastructure/http/routes/stockRoutes.js';
+import { dashboardRoutes } from './infrastructure/http/routes/dashboardRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-app.use('/auth', authRoutes);
-app.use('/users', userRoutes);
-app.use('/products', productRoutes);
-app.use('/fipe', fipeRoutes);
-app.use('/service-orders', serviceOrderRoutes);
-
-//Rotas de tradução de erros
-app.use(notFoundHandler);
-app.use(errorHandler);
-
-// Rota de origem
+// Rotas de diagnostico do sistema
 app.get('/', (req, res) => {
     return res.status(200).json({
         status: 'ok',
@@ -48,18 +39,29 @@ app.get('/db', async (req, res) => {
         }
       });
     } catch (error) {
-        console.error('Erro detalhado de conexão:', error);
+        console.error('Erro de conexão com o banco de dados:', error);
         return res.status(500).json({
             status: 'error',
-            message: 'Falha ao conectar com o banco de dados',
-            errorCode: error.code || 'UNKNOWN',
-            errorDetails: error.message || String(error)
+            message: 'Falha na conexão com o banco de dados.'
         });
     }
 });
 
+// Rotas do sistema
+app.use('/auth', authRoutes);
+app.use('/users', userRoutes);
+app.use('/products', productRoutes);
+app.use('/fipe', fipeRoutes);
+app.use('/service-orders', serviceOrderRoutes);
+app.use('/stock', stockRoutes);
+app.use('/dashboard', dashboardRoutes);
+
+// Middlewares Gglobais de erro
+app.use(notFoundHandler);
+app.use(errorHandler);
+
 app.listen(PORT, () => {
-    console.log(`Server rodando na porta http://localhost:${PORT}`);
+    console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
 
 export { app };

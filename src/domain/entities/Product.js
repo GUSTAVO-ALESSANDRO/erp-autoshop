@@ -19,31 +19,4 @@ export class Product {
         this.is_active = is_active;
         this.created_at = created_at;
     }
-
-    // Visão completa, apenas Admin e Funcionário
-    toPrivateJSON() {
-        return {
-            id: this.id,
-            name: this.name,
-            description: this.description,
-            cost_price: this.cost_price,
-            sell_price: this.sell_price,
-            current_stock: this.current_stock,
-            is_active: this.is_active,
-            created_at: this.created_at
-        };
-    }
-
-    // Visão do Cliente, mostra tudo sem o preço de custo
-    toPublicJSON() {
-        return {
-            id: this.id,
-            name: this.name,
-            description: this.description,
-            sell_price: this.sell_price,
-            current_stock: this.current_stock,
-            is_active: this.is_active,
-            created_at: this.created_at
-        };
-    }
 }
