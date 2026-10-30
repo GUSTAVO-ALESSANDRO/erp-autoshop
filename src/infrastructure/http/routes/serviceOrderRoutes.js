@@ -5,26 +5,28 @@ import { PostgresServiceOrderRepository } from '../../repositories/PostgresServi
 import { PostgresProductRepository } from '../../repositories/PostgresProductRepository.js';
 import { PostgresUserRepository } from '../../repositories/PostgresUserRepository.js';
 import { EmailService } from '../../external-services/mail/EmailService.js';
+import { PostgresTransactionManager } from '../../database/PostgresTransactionManager.js';
 import { verifyToken } from '../middlewares/verifyToken.js';
 import { checkRole } from '../middlewares/checkRole.js';
 
 const serviceOrderRoutes = Router();
 
-// Instanciação manual das dependências e repositórios necessários
+// Instanciação das dependências e repositórios
 const serviceOrderRepository = new PostgresServiceOrderRepository();
 const productRepository = new PostgresProductRepository();
 const userRepository = new PostgresUserRepository();
 const emailService = new EmailService();
+const transactionManager = new PostgresTransactionManager();
 
-// Instancia o caso de uso injetando os repositórios e serviços de e-mail
+// Instancia o caso de uso injetando todas as dependências necessárias
 const serviceOrderUseCase = new ServiceOrderUseCase(
     serviceOrderRepository,
     productRepository,
     userRepository,
-    emailService
+    emailService,
+    transactionManager
 );
 
-// Instancia o controller passando o caso de uso correspondente
 const serviceOrderController = new ServiceOrderController(serviceOrderUseCase);
 
 serviceOrderRoutes.post('/', verifyToken, (req, res, next) => serviceOrderController.create(req, res, next));
