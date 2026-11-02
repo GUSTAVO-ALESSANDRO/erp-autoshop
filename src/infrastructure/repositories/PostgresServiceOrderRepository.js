@@ -104,7 +104,7 @@ export class PostgresServiceOrderRepository {
                 so.*,
                 COALESCE(
                     json_agg(
-                        json_build_object(
+                        DISTINCT jsonb_build_object(
                             'id', soi.id,
                             'os_id', soi.os_id,
                             'product_id', soi.product_id,
@@ -113,22 +113,34 @@ export class PostgresServiceOrderRepository {
                             'unit_sell_price', soi.unit_sell_price,
                             'product_name', p.name
                         )
-                    ) FILTER (WHERE soi.id IS NULL), '[]'
-                ) as items_json
+                    ) FILTER (WHERE soi.id IS NOT NULL), '[]'
+                ) as items_json,
+                COALESCE(
+                    json_agg(
+                        DISTINCT jsonb_build_object(
+                            'id', soe.id,
+                            'os_id', soe.os_id,
+                            'employee_id', soe.employee_id,
+                            'employee_name', u.name
+                        )
+                    ) FILTER (WHERE soe.id IS NOT NULL), '[]'
+                ) as employees_json
             FROM service_orders so
             LEFT JOIN service_order_items soi ON so.id = soi.os_id
             LEFT JOIN products p ON soi.product_id = p.id
+            LEFT JOIN service_order_employees soe ON so.id = soe.os_id
+            LEFT JOIN users u ON soe.employee_id = u.id
             WHERE 1=1
         `;
         const params = [];
 
         if (status) {
-            query += ` AND so.status = $${params.length + 1}`;
             params.push(status);
+            query += ` AND so.status = $${params.length}`;
         }
         if (customer_id) {
-            query += ` AND so.customer_id = $${params.length + 1}`;
             params.push(customer_id);
+            query += ` AND so.customer_id = $${params.length}`;
         }
 
         query += ` GROUP BY so.id ORDER BY so.created_at DESC`;
@@ -136,12 +148,21 @@ export class PostgresServiceOrderRepository {
         
         return res.rows.map(row => {
             const os = this.toEntity(row);
-            // Se a agregação retornar itens válidos, mapeia para entidades de itens
+            
+            // Mapeia os itens corretamente
             if (row.items_json && Array.isArray(row.items_json) && row.items_json[0]?.id) {
                 os.items = row.items_json.map(itemRow => new ServiceOrderItem(itemRow));
             } else {
                 os.items = [];
             }
+
+            // Mapeia os funcionários alocados corretamente
+            if (row.employees_json && Array.isArray(row.employees_json) && row.employees_json[0]?.id) {
+                os.employees = row.employees_json.map(empRow => new ServiceOrderEmployee(empRow));
+            } else {
+                os.employees = [];
+            }
+
             return os;
         });
     }

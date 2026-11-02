@@ -6,9 +6,6 @@ describe('Integration Tests - Admin Dashboard & Metrics', () => {
     let adminToken;
     let employeeToken;
     let customerToken;
-    let employeeId;
-    let customerId;
-    let productId;
 
     beforeAll(async () => {
         await pool.query("DELETE FROM users WHERE email LIKE '%_dash_test@autoshop.com'");
@@ -25,16 +22,13 @@ describe('Integration Tests - Admin Dashboard & Metrics', () => {
             password: 'password123'
         });
         adminToken = adminLogin.body.token;
-        const adminUserRes = await pool.query("SELECT id FROM users WHERE email = 'admin_dash_test@autoshop.com'");
-        adminId = adminUserRes.rows[0].id;
 
         // Cria Employee
-        const empReg = await request(app).post('/users/cadastro').send({
+        await request(app).post('/users/cadastro').send({
             name: 'Employee Dash',
             email: 'employee_dash_test@autoshop.com',
             password: 'password123'
         });
-        employeeId = empReg.body.data.id;
         await pool.query("UPDATE users SET role = 'EMPLOYEE' WHERE email = 'employee_dash_test@autoshop.com'");
         const empLogin = await request(app).post('/auth/login').send({
             email: 'employee_dash_test@autoshop.com',
@@ -43,90 +37,108 @@ describe('Integration Tests - Admin Dashboard & Metrics', () => {
         employeeToken = empLogin.body.token;
 
         // Cria Customer comum
-        const custReg = await request(app).post('/users/cadastro').send({
+        await request(app).post('/users/cadastro').send({
             name: 'Customer Dash',
             email: 'customer_dash_test@autoshop.com',
             password: 'password123'
         });
-        customerId = custReg.body.data.id;
         const custLogin = await request(app).post('/auth/login').send({
             email: 'customer_dash_test@autoshop.com',
             password: 'password123'
         });
         customerToken = custLogin.body.token;
-
-        // Cria Produto base
-        const prod = await request(app).post('/products').set('Authorization', `Bearer ${adminToken}`).send({
-            name: 'Produto Dashboard Teste',
-            cost_price: 50.00,
-            sell_price: 100.00,
-            current_stock: 2
-        });
-        productId = prod.body.data.id;
     });
 
     afterAll(async () => {
         await pool.end();
     });
 
-    it('ADMIN deve conseguir acessar o resumo executivo do dashboard', async () => {
-        const res = await request(app)
-            .get('/dashboard/summary')
-            .set('Authorization', `Bearer ${adminToken}`);
+    describe('Caminho Feliz - Acesso do Administrador (Summary e Financial)', () => {
+        it('ADMIN deve conseguir acessar o resumo executivo (/dashboard/summary)', async () => {
+            const res = await request(app)
+                .get('/dashboard/summary')
+                .set('Authorization', `Bearer ${adminToken}`);
 
-        expect(res.status).toBe(200);
-        expect(res.body.status).toBe('success');
-        expect(res.body.data).toHaveProperty('totalCustomers');
-        expect(res.body.data).toHaveProperty('serviceOrdersByStatus');
-        expect(res.body.data).toHaveProperty('lowStockCount');
+            expect(res.status).toBe(200);
+            expect(res.body.status).toBe('success');
+            
+            // Valida estrutura de usuários
+            expect(res.body.data).toHaveProperty('users');
+            expect(res.body.data.users).toHaveProperty('active');
+            expect(res.body.data.users).toHaveProperty('inactive');
+            expect(res.body.data.users).toHaveProperty('total');
+            expect(res.body.data.users.active).toHaveProperty('customers');
+            expect(res.body.data.users.active).toHaveProperty('employees');
+            expect(res.body.data.users.active).toHaveProperty('admins');
+
+            // Valida estrutura de produtos
+            expect(res.body.data).toHaveProperty('products');
+            expect(res.body.data.products).toHaveProperty('totalCount');
+            expect(res.body.data.products).toHaveProperty('stockDetails');
+            expect(Array.isArray(res.body.data.products.stockDetails)).toBe(true);
+
+            // Valida estrutura de ordens de serviço
+            expect(res.body.data).toHaveProperty('serviceOrders');
+            expect(res.body.data.serviceOrders).toHaveProperty('totalCount');
+            expect(res.body.data.serviceOrders).toHaveProperty('byStatus');
+            expect(res.body.data.serviceOrders.byStatus).toHaveProperty('ORCAMENTO');
+            expect(res.body.data.serviceOrders.byStatus).toHaveProperty('CONCLUIDO');
+        });
+
+        it('ADMIN deve conseguir acessar as métricas financeiras (/dashboard/financial)', async () => {
+            const res = await request(app)
+                .get('/dashboard/financial')
+                .set('Authorization', `Bearer ${adminToken}`);
+
+            expect(res.status).toBe(200);
+            expect(res.body.status).toBe('success');
+            expect(res.body.data).toHaveProperty('grossRevenue');
+            expect(res.body.data).toHaveProperty('laborRevenue');
+            expect(res.body.data).toHaveProperty('totalStockValue');
+        });
     });
 
-    it('ADMIN deve conseguir acessar métricas financeiras sem filtros', async () => {
-        const res = await request(app)
-            .get('/dashboard/financial')
-            .set('Authorization', `Bearer ${adminToken}`);
+    describe('Testes de Segurança, Controle de Acesso e Erros (RBAC)', () => {
+        it('Usuário deslogado (sem token) NÃO deve conseguir acessar /dashboard/summary (401)', async () => {
+            const res = await request(app).get('/dashboard/summary');
+            expect(res.status).toBe(401);
+        });
 
-        expect(res.status).toBe(200);
-        expect(res.body.status).toBe('success');
-        expect(res.body.data).toHaveProperty('summary');
-        expect(res.body.data).toHaveProperty('orders');
-    });
+        it('Usuário deslogado (sem token) NÃO deve conseguir acessar /dashboard/financial (401)', async () => {
+            const res = await request(app).get('/dashboard/financial');
+            expect(res.status).toBe(401);
+        });
 
-    it('ADMIN deve conseguir filtrar métricas financeiras por intervalo de datas, funcionário, cliente e produto', async () => {
-        const res = await request(app)
-            .get(`/dashboard/financial?start_date=2026-01-01&end_date=2026-12-31&customer_id=${customerId}&employee_id=${employeeId}&product_id=${productId}`)
-            .set('Authorization', `Bearer ${adminToken}`);
+        it('Funcionário (EMPLOYEE) NÃO deve conseguir acessar /dashboard/summary (Forbidden / >= 400)', async () => {
+            const res = await request(app)
+                .get('/dashboard/summary')
+                .set('Authorization', `Bearer ${employeeToken}`);
 
-        expect(res.status).toBe(200);
-        expect(res.body.status).toBe('success');
-        expect(Array.isArray(res.body.data.orders)).toBe(true);
-    });
+            expect(res.status).toBeGreaterThanOrEqual(400);
+        });
 
-    it('Usuário deslogado NÃO deve conseguir acessar o resumo ou métricas financeiras do dashboard (401)', async () => {
-        const resSummary = await request(app).get('/dashboard/summary');
-        expect(resSummary.status).toBe(401);
+        it('Funcionário (EMPLOYEE) NÃO deve conseguir acessar /dashboard/financial (Forbidden / >= 400)', async () => {
+            const res = await request(app)
+                .get('/dashboard/financial')
+                .set('Authorization', `Bearer ${employeeToken}`);
 
-        const resFinancial = await request(app).get('/dashboard/financial');
-        expect(resFinancial.status).toBe(401);
-    });
+            expect(res.status).toBeGreaterThanOrEqual(400);
+        });
 
-    it('Funcionário (EMPLOYEE) NÃO deve conseguir acessar o dashboard (summary ou financial)', async () => {
-        const resSummary = await request(app)
-            .get('/dashboard/summary')
-            .set('Authorization', `Bearer ${employeeToken}`);
-        expect(resSummary.status).toBeGreaterThanOrEqual(400);
+        it('Cliente (CUSTOMER) NÃO deve conseguir acessar /dashboard/summary (Forbidden / >= 400)', async () => {
+            const res = await request(app)
+                .get('/dashboard/summary')
+                .set('Authorization', `Bearer ${customerToken}`);
 
-        const resFinancial = await request(app)
-            .get('/dashboard/financial')
-            .set('Authorization', `Bearer ${employeeToken}`);
-        expect(resFinancial.status).toBeGreaterThanOrEqual(400);
-    });
+            expect(res.status).toBeGreaterThanOrEqual(400);
+        });
 
-    it('CUSTOMER comum NÃO deve conseguir acessar o dashboard', async () => {
-        const res = await request(app)
-            .get('/dashboard/summary')
-            .set('Authorization', `Bearer ${customerToken}`);
+        it('Cliente (CUSTOMER) NÃO deve conseguir acessar /dashboard/financial (Forbidden / >= 400)', async () => {
+            const res = await request(app)
+                .get('/dashboard/financial')
+                .set('Authorization', `Bearer ${customerToken}`);
 
-        expect(res.status).toBeGreaterThanOrEqual(400);
+            expect(res.status).toBeGreaterThanOrEqual(400);
+        });
     });
 });

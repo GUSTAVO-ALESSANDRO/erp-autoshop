@@ -24,7 +24,8 @@ export class UserController {
             const filters = {
                 name: req.query.name,
                 email: req.query.email,
-                role: req.query.role
+                role: req.query.role,
+                isActive: req.query.isActive !== undefined ? req.query.isActive : req.query.is_active
             };
             const requesterUser = req.user;
             const users = await this.userUseCase.getAllUsers(filters, requesterUser);

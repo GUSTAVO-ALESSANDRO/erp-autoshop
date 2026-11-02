@@ -52,6 +52,11 @@ export class PostgresUserRepository {
             params.push(filters.role);
             query += ` AND role = $${params.length}`;
         }
+        if (filters.isActive !== undefined && filters.isActive !== null && filters.isActive !== '') {
+            const isActiveBool = String(filters.isActive).toLowerCase() === 'true';
+            params.push(isActiveBool);
+            query += ` AND is_active = $${params.length}`;
+        }
 
         query += ' ORDER BY created_at DESC';
         const result = await pool.query(query, params);
