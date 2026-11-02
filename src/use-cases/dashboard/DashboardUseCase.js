@@ -13,11 +13,11 @@ export class DashboardUseCase {
         return await this.dashboardRepository.getSummary();
     }
 
-    // Retorna métricas financeiras de lucro e faturamento filtradas
-    async getFinancialMetrics(filters = {}, requesterUser) {
+    // Retorna métricas financeiras de lucro e faturamento
+    async getFinancialMetrics(requesterUser) {
         if (!requesterUser || !requesterUser.isAdmin()) {
             throw new BusinessRuleError('Acesso negado. Apenas administradores podem acessar as métricas financeiras.');
         }
-        return await this.dashboardRepository.getFinancialMetrics(filters);
+        return await this.dashboardRepository.getFinancialMetrics();
     }
 }
