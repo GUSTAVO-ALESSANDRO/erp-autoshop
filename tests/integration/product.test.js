@@ -9,8 +9,6 @@ describe('Integration Tests - Products CRUD & Stock', () => {
 
     // Antes de todos os testes, limpa testes anteriores e cria tokens reais para testes com autenticação
     beforeAll(async () => {
-        // Limpa produtos de testes anteriores
-        await pool.query('DELETE FROM products');
         // Limpa usuários de testes anteriores para evitar conflito de e-mail
         await pool.query("DELETE FROM users WHERE email LIKE '%_prod@autocare.com'");
 

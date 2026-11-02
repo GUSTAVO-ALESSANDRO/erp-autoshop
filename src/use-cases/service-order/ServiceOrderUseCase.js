@@ -159,6 +159,24 @@ export class ServiceOrderUseCase {
                 throw new BusinessRuleError('Não é permitido adicionar peças em Ordens de Serviço concluídas ou canceladas.');
             }
 
+            // Verifica e realiza a movimentação imediata no estoque com lock transacional
+            const prodRes = await client.query('SELECT current_stock FROM products WHERE id = $1 FOR UPDATE', [product_id]);
+            if (!prodRes.rows[0]) {
+                throw new NotFoundError('Produto não encontrado.');
+            }
+            const currentStock = Number(prodRes.rows[0].current_stock);
+            if (currentStock < qty) {
+                throw new BusinessRuleError(`Estoque insuficiente para o produto. Disponível: ${currentStock}, Solicitado: ${qty}`);
+            }
+
+            const newBalance = currentStock - qty;
+            await client.query('UPDATE products SET current_stock = $1 WHERE id = $2', [newBalance, product_id]);
+            await client.query(
+                `INSERT INTO stock_movements (id, product_id, type, quantity, balance_after, reason, created_at)
+                 VALUES (gen_random_uuid(), $1, 'SAIDA', $2, $3, $4, NOW())`,
+                [product_id, qty, newBalance, `Uso na Ordem de Serviço ${os.code}`]
+            );
+
             await this.serviceOrderRepository.addItem(osId, itemEntity, client);
             const updatedOs = await this.serviceOrderRepository.findById(osId, client);
             const itemsTotal = updatedOs.items.reduce((sum, item) => sum + (item.quantity * item.unit_sell_price), 0);
@@ -238,11 +256,6 @@ export class ServiceOrderUseCase {
             };
             if (!allowedTransitions[os.status]?.includes(newStatus)) {
                 throw new BusinessRuleError(`Não é permitido alterar o status de ${os.status} para ${newStatus}.`);
-            }
-
-            // Delega a baixa de estoque transacional para o repositório
-            if (newStatus === 'EM_EXECUCAO') {
-                await this.serviceOrderRepository.processStockDeduction(os, client);
             }
 
             await this.serviceOrderRepository.updateStatus(osId, newStatus, client);

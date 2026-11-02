@@ -5,13 +5,19 @@ export class ServiceOrderController {
         this.serviceOrderUseCase = serviceOrderUseCase;
     }
 
+    // Auxiliar interno para aplicar a apresentação correta baseada no papel do usuário
+    present(order, requesterUser) {
+        const permission = requesterUser?.isAdmin() || requesterUser?.isEmployee();
+        return permission ? ServiceOrderPresenter.toPrivate(order) : ServiceOrderPresenter.toPublic(order);
+    }
+
     // Trata a criação de uma nova Ordem de Serviço via HTTP
     async create(req, res, next) {
         try {
             const osData = req.body;
             const requesterUser = req.user;
             const created = await this.serviceOrderUseCase.createServiceOrder(osData, requesterUser);
-            return res.status(201).json({ status: 'success', data: ServiceOrderPresenter.toPublic(created) });
+            return res.status(201).json({ status: 'success', data: this.present(created, requesterUser) });
         } catch (error) {
             return next(error);
         }
@@ -25,7 +31,7 @@ export class ServiceOrderController {
             const orders = await this.serviceOrderUseCase.getAllServiceOrders(filters, requesterUser);
             return res.status(200).json({
                 status: 'success',
-                data: orders.map(ServiceOrderPresenter.toPublic)
+                data: orders.map(order => this.present(order, requesterUser))
             });
         } catch (error) {
             return next(error);
@@ -38,7 +44,7 @@ export class ServiceOrderController {
             const { id } = req.params;
             const requesterUser = req.user;
             const os = await this.serviceOrderUseCase.getServiceOrderById(id, requesterUser);
-            return res.status(200).json({ status: 'success', data: ServiceOrderPresenter.toPublic(os) });
+            return res.status(200).json({ status: 'success', data: this.present(os, requesterUser) });
         } catch (error) {
             return next(error);
         }
@@ -51,7 +57,7 @@ export class ServiceOrderController {
             const itemData = req.body;
             const requesterUser = req.user;
             const updatedOs = await this.serviceOrderUseCase.addItemToServiceOrder(id, itemData, requesterUser);
-            return res.status(200).json({ status: 'success', data: ServiceOrderPresenter.toPublic(updatedOs) });
+            return res.status(200).json({ status: 'success', data: this.present(updatedOs, requesterUser) });
         } catch (error) {
             return next(error);
         }
@@ -64,7 +70,7 @@ export class ServiceOrderController {
             const empData = req.body;
             const requesterUser = req.user;
             const updatedOs = await this.serviceOrderUseCase.addEmployeeToServiceOrder(id, empData, requesterUser);
-            return res.status(200).json({ status: 'success', data: ServiceOrderPresenter.toPublic(updatedOs) });
+            return res.status(200).json({ status: 'success', data: this.present(updatedOs, requesterUser) });
         } catch (error) {
             return next(error);
         }
@@ -77,7 +83,7 @@ export class ServiceOrderController {
             const { status } = req.body;
             const requesterUser = req.user;
             const updatedOs = await this.serviceOrderUseCase.updateStatus(id, status, requesterUser);
-            return res.status(200).json({ status: 'success', data: ServiceOrderPresenter.toPublic(updatedOs) });
+            return res.status(200).json({ status: 'success', data: this.present(updatedOs, requesterUser) });
         } catch (error) {
             return next(error);
         }
