@@ -1,5 +1,6 @@
 import express from 'express';
 import 'dotenv/config';
+import { pathToFileURL } from 'node:url';
 import { authRoutes } from './infrastructure/http/routes/authRoutes.js';
 import { query } from './infrastructure/database/connection.js';
 import { userRoutes } from './infrastructure/http/routes/userRoutes.js';
@@ -60,8 +61,13 @@ app.use('/dashboard', dashboardRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
-});
+const isDirectExecution = process.argv[1]
+    && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectExecution) {
+    app.listen(PORT, () => {
+        console.log(`Servidor rodando em http://localhost:${PORT}`);
+    });
+}
 
 export { app };
