@@ -167,7 +167,7 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
 
         it('Funcionário deve conseguir alterar status para EM_EXECUCAO (Baixa automática de estoque ACID)', async () => {
             const response = await request(app)
-                .patch(`/service-orders/${createdOsId}/status`)
+                .put(`/service-orders/${createdOsId}/status`)
                 .set('Authorization', `Bearer ${employeeToken}`)
                 .send({
                     status: 'EM_EXECUCAO'
@@ -192,7 +192,7 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
 
         it('Funcionário deve conseguir alterar status para CONCLUIDO', async () => {
             const response = await request(app)
-                .patch(`/service-orders/${createdOsId}/status`)
+                .put(`/service-orders/${createdOsId}/status`)
                 .set('Authorization', `Bearer ${employeeToken}`)
                 .send({
                     status: 'CONCLUIDO'
@@ -281,7 +281,7 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
             expect(itemResponse.status).toBeGreaterThanOrEqual(400);
 
             const statusResponse = await request(app)
-                .patch(`/service-orders/${createdOsId}/status`)
+                .put(`/service-orders/${createdOsId}/status`)
                 .set('Authorization', `Bearer ${customerToken}`)
                 .send({
                     status: 'APROVADO'
@@ -296,6 +296,80 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
                 .set('Authorization', `Bearer ${adminToken}`);
 
             expect(response.status).toBe(404);
+        });
+
+        it('Funcionário deve conseguir remover um item da OS e estornar o estoque', async () => {
+            // Primeiro abre uma nova OS e adiciona um item
+            const newOs = await request(app)
+                .post('/service-orders')
+                .set('Authorization', `Bearer ${employeeToken}`)
+                .send({
+                    customer_id: customerId,
+                    vehicle_brand: 'Fiat',
+                    vehicle_model: 'Uno',
+                    title: 'Teste Remoção Item'
+                });
+            const tempOsId = newOs.body.data.id;
+
+            const itemRes = await request(app)
+                .post(`/service-orders/${tempOsId}/items`)
+                .set('Authorization', `Bearer ${employeeToken}`)
+                .send({ product_id: productId, quantity: 2 });
+            
+            const itemId = itemRes.body.data.items[0].id;
+
+            // Remove o item
+            const deleteRes = await request(app)
+                .delete(`/service-orders/${tempOsId}/items/${itemId}`)
+                .set('Authorization', `Bearer ${employeeToken}`);
+
+            expect(deleteRes.status).toBe(200);
+            expect(deleteRes.body.data.items.length).toBe(0);
+        });
+
+        it('Funcionário deve conseguir desalocar um funcionário da OS', async () => {
+            const newOs = await request(app)
+                .post('/service-orders')
+                .set('Authorization', `Bearer ${employeeToken}`)
+                .send({
+                    customer_id: customerId,
+                    vehicle_brand: 'Fiat',
+                    vehicle_model: 'Palio',
+                    title: 'Teste Desalocar Funcionário'
+                });
+            const tempOsId = newOs.body.data.id;
+
+            await request(app)
+                .post(`/service-orders/${tempOsId}/employees`)
+                .set('Authorization', `Bearer ${employeeToken}`)
+                .send({ employee_id: employeeId });
+
+            const deleteEmpRes = await request(app)
+                .delete(`/service-orders/${tempOsId}/employees/${employeeId}`)
+                .set('Authorization', `Bearer ${employeeToken}`);
+
+            expect(deleteEmpRes.status).toBe(200);
+            expect(deleteEmpRes.body.data.employees.length).toBe(0);
+        });
+
+        it('Funcionário deve conseguir excluir uma Ordem de Serviço não concluída', async () => {
+            const newOs = await request(app)
+                .post('/service-orders')
+                .set('Authorization', `Bearer ${employeeToken}`)
+                .send({
+                    customer_id: customerId,
+                    vehicle_brand: 'Ford',
+                    vehicle_model: 'Fiesta',
+                    title: 'Teste Exclusão OS'
+                });
+            const tempOsId = newOs.body.data.id;
+
+            const deleteRes = await request(app)
+                .delete(`/service-orders/${tempOsId}`)
+                .set('Authorization', `Bearer ${employeeToken}`);
+
+            expect(deleteRes.status).toBe(200);
+            expect(deleteRes.body.status).toBe('success');
         });
     });
 });

@@ -88,4 +88,40 @@ export class ServiceOrderController {
             return next(error);
         }
     }
+    
+    // Trata a exclusão de uma Ordem de Serviço
+    async remove(req, res, next) {
+        try {
+            const { id } = req.params;
+            const requesterUser = req.user;
+            await this.serviceOrderUseCase.deleteServiceOrder(id, requesterUser);
+            return res.status(200).json({ status: 'success', message: 'Ordem de Serviço removida com sucesso.' });
+        } catch (error) {
+            return next(error);
+        }
+    }
+
+    // Trata a remoção de um item/produto da OS com estorno de estoque
+    async removeItem(req, res, next) {
+        try {
+            const { id, itemId } = req.params;
+            const requesterUser = req.user;
+            const updatedOs = await this.serviceOrderUseCase.removeItemFromServiceOrder(id, itemId, requesterUser);
+            return res.status(200).json({ status: 'success', data: this.present(updatedOs, requesterUser) });
+        } catch (error) {
+            return next(error);
+        }
+    }
+
+    // Trata a desalocação de um funcionário da OS
+    async removeEmployee(req, res, next) {
+        try {
+            const { id, employeeId } = req.params;
+            const requesterUser = req.user;
+            const updatedOs = await this.serviceOrderUseCase.removeEmployeeFromServiceOrder(id, employeeId, requesterUser);
+            return res.status(200).json({ status: 'success', data: this.present(updatedOs, requesterUser) });
+        } catch (error) {
+            return next(error);
+        }
+    }
 }
