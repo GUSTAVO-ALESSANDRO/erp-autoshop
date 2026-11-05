@@ -145,4 +145,46 @@ describe('Integration Tests - Stock Movements, Initial Stock & Audit', () => {
 
         expect(res.status).toBeGreaterThanOrEqual(400);
     });
+
+    it('Deve atualizar uma movimentação de estoque com sucesso via PUT', async () => {
+        // Cria uma movimentação primeiro para pegar o ID
+        const listRes = await request(app)
+            .get(`/stock/products/${productId}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        
+        const movementId = listRes.body.data[0].id;
+
+        const updateRes = await request(app)
+            .put(`/stock/${movementId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                quantity: 8,
+                reason: 'Ajuste de quantidade da movimentação'
+            });
+
+        expect(updateRes.status).toBe(200);
+        expect(updateRes.body.status).toBe('success');
+        expect(updateRes.body.data.quantity).toBe(8);
+    });
+
+    it('Deve remover uma movimentação de estoque com sucesso via DELETE e estornar o saldo', async () => {
+        // Cria uma entrada específica para teste de exclusão
+        const createMov = await request(app)
+            .post(`/stock/products/${productId}/stock`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                type: 'ENTRADA',
+                quantity: 4,
+                reason: 'Para teste de exclusão'
+            });
+        
+        const movementId = createMov.body.data.id;
+
+        const deleteRes = await request(app)
+            .delete(`/stock/${movementId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(deleteRes.status).toBe(200);
+        expect(deleteRes.body.status).toBe('success');
+    });
 });
