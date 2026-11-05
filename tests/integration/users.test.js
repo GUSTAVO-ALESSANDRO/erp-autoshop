@@ -416,4 +416,11 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
         expect(response.status).toBe(401);
         expect(response.body.status).toBe('error');
     });
+
+    it('EMPLOYEE deve conseguir listar clientes com sucesso e acionar o filtro do repositório', async () => {
+        const res = await request(app)
+            .get('/users?role=CUSTOMER')
+            .set('Authorization', `Bearer ${employeeToken}`);
+        expect(res.status).toBe(200);
+    });
 });

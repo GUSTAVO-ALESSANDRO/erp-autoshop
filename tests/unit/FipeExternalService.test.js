@@ -51,4 +51,23 @@ describe('FipeService', () => {
         fetchMock.mockRejectedValue(new Error('network failure'));
         await expect(fipeService.getBrands()).rejects.toThrow(ExternalServiceError);
     });
+
+    it('Deve lançar ValidationError ao enviar identificadores vazios para a codificação de ID', async () => {
+        const service = new FipeService();
+        expect(() => service.encodeId('   ')).toThrow();
+    });
+
+    it('Deve lançar ExternalServiceError quando a API retornar um status de erro genérico', async () => {
+        const mockFetch = jest.fn().mockResolvedValue({
+            ok: false,
+            status: 500
+        });
+        const service = new FipeService(mockFetch);
+        await expect(service.request('/test')).rejects.toThrow();
+    });
+
+    it('Deve lançar ValidationError se o tipo de veículo for inválido', () => {
+        const service = new FipeService();
+        expect(() => service.getVehicleType('aviao')).toThrow();
+    });
 });

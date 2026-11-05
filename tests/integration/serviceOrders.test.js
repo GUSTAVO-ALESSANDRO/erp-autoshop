@@ -297,5 +297,23 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
 
             expect(response.status).toBe(404);
         });
+
+        it('Funcionário deve conseguir listar Ordens de Serviço filtrando por status', async () => {
+            const response = await request(app)
+                .get('/service-orders?status=ORCAMENTO')
+                .set('Authorization', `Bearer ${employeeToken}`);
+
+            expect(response.status).toBe(200);
+            expect(Array.isArray(response.body.data)).toBe(true);
+        });
+    });
+
+    it('Funcionário deve conseguir listar Ordens de Serviço filtrando por status e cliente combinados', async () => {
+        const response = await request(app)
+            .get(`/service-orders?status=ORCAMENTO&customer_id=${customerId}`)
+            .set('Authorization', `Bearer ${employeeToken}`);
+
+        expect(response.status).toBe(200);
+        expect(Array.isArray(response.body.data)).toBe(true);
     });
 });
