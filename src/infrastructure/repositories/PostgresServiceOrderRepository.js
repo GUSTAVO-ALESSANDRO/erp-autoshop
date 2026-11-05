@@ -207,6 +207,41 @@ export class PostgresServiceOrderRepository {
         return res.rows[0] ? this.toEntity(res.rows[0]) : null;
     }
 
+    // Remove um item específico da OS pelo ID e retorna o registro excluído
+    async removeItem(itemId, dbClient = pool) {
+        const res = await dbClient.query(`DELETE FROM service_order_items WHERE id = $1 RETURNING *`, [itemId]);
+        return res.rows[0];
+    }
+
+    // Busca todos os itens de uma OS antes de excluí-la
+    async findItemsByOsId(osId, dbClient = pool) {
+        const res = await dbClient.query(`SELECT * FROM service_order_items WHERE os_id = $1`, [osId]);
+        return res.rows;
+    }
+
+    // Remove todos os itens de uma OS
+    async removeAllItemsByOsId(osId, dbClient = pool) {
+        await dbClient.query(`DELETE FROM service_order_items WHERE os_id = $1`, [osId]);
+    }
+
+    // Remove todos os vínculos de funcionários de uma OS
+    async removeAllEmployeesByOsId(osId, dbClient = pool) {
+        await dbClient.query(`DELETE FROM service_order_employees WHERE os_id = $1`, [osId]);
+    }
+
+    // Exclui a OS pelo ID
+    async delete(osId, dbClient = pool) {
+        await dbClient.query(`DELETE FROM service_orders WHERE id = $1`, [osId]);
+    }
+
+    // Desaloca um funcionário específico da OS
+    async removeEmployee(osId, employeeId, dbClient = pool) {
+        await dbClient.query(
+            `DELETE FROM service_order_employees WHERE os_id = $1 AND employee_id = $2`,
+            [osId, employeeId]
+        );
+    }
+
     // Mapeia registro bruto do banco para a entidade ServiceOrder
     toEntity(row) {
         return new ServiceOrder({

@@ -49,6 +49,31 @@ export class PostgresStockMovementRepository {
         return res.rows.map(row => this.toEntity(row));
     }
 
+    // Busca movimentação por ID (com suporte a FOR UPDATE para transações)
+    async findById(id, dbClient = pool, forUpdate = false) {
+        const query = `SELECT sm.*, p.name as product_name FROM stock_movements sm JOIN products p ON sm.product_id = p.id WHERE sm.id = $1`;
+        const lockedQuery = forUpdate ? `${query} FOR UPDATE` : query;
+        const res = await dbClient.query(lockedQuery, [id]);
+        return res.rows[0] ? this.toEntity(res.rows[0]) : null;
+    }
+
+    // Atualiza os dados de uma movimentação existente (incluindo o tipo)
+    async update(id, type, quantity, balanceAfter, reason, dbClient = pool) {
+        const query = `
+            UPDATE stock_movements 
+            SET type = $1, quantity = $2, balance_after = $3, reason = $4 
+            WHERE id = $5 
+            RETURNING *;
+        `;
+        const res = await dbClient.query(query, [type, quantity, balanceAfter, reason, id]);
+        return res.rows[0] ? this.toEntity(res.rows[0]) : null;
+    }
+
+    // Remove uma movimentação de estoque
+    async delete(id, dbClient = pool) {
+        await dbClient.query(`DELETE FROM stock_movements WHERE id = $1`, [id]);
+    }
+
     // Mapeia linha do banco para a Entidade StockMovement
     toEntity(row) {
         return new StockMovement({

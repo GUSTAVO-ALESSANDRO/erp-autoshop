@@ -100,4 +100,29 @@ export class PostgresProductRepository {
             created_at: row.created_at
         });
     }
+
+    // Retorna o estoque atual com bloqueio de linha para transações ACID
+    async getCurrentStockWithLock(id, dbClient = pool) {
+        const result = await dbClient.query('SELECT current_stock FROM products WHERE id = $1 FOR UPDATE', [id]);
+        if (!result.rows[0]) return null;
+        return Number(result.rows[0].current_stock);
+    }
+
+    // Atualiza apenas o estoque atual do produto dentro de uma transação
+    async updateStock(id, newStock, dbClient = pool) {
+        const query = `UPDATE products SET current_stock = $1 WHERE id = $2 RETURNING *`;
+        const result = await dbClient.query(query, [newStock, id]);
+        if (!result.rows[0]) return null;
+        const row = result.rows[0];
+        return new Product({
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            cost_price: row.cost_price,
+            sell_price: row.sell_price,
+            current_stock: row.current_stock,
+            is_active: row.is_active,
+            created_at: row.created_at
+        });
+    }
 }

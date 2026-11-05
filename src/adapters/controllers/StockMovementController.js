@@ -46,4 +46,29 @@ export class StockMovementController {
             return next(error);
         }
     }
+
+    // Trata a atualização de uma movimentação de estoque existente
+    async update(req, res, next) {
+        try {
+            const { id } = req.params;
+            const updateData = req.body;
+            const requesterUser = req.user;
+            const result = await this.stockMovementUseCase.updateStockMovement(id, updateData, requesterUser);
+            return res.status(200).json({ status: 'success', data: StockMovementPresenter.toPublic(result) });
+        } catch (error) {
+            return next(error);
+        }
+    }
+
+    // Trata a remoção/estorno de uma movimentação de estoque
+    async remove(req, res, next) {
+        try {
+            const { id } = req.params;
+            const requesterUser = req.user;
+            await this.stockMovementUseCase.deleteStockMovement(id, requesterUser);
+            return res.status(200).json({ status: 'success', message: 'Movimentação de estoque removida com sucesso.' });
+        } catch (error) {
+            return next(error);
+        }
+    }
 }
