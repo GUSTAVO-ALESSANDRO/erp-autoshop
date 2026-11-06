@@ -4,5 +4,5 @@ export class IDashboardRepository {
     async getSummary() { throw new Error('Method not implemented'); }
     
     // Retorna métricas financeiras detalhadas por intervalo de datas
-    async getFinancialMetrics(filters) { throw new Error('Method not implemented'); }
+    async getFinancialMetrics(_filters) { throw new Error('Method not implemented'); }
 }

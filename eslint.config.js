@@ -3,6 +3,10 @@ import globals from "globals";
 import { defineConfig } from "eslint/config";
 
 export default defineConfig([
+  {
+    // Ignora pastas geradas automaticamente para o linter não varrer arquivos desnecessários
+    ignores: ["coverage/**", "node_modules/**", "dist/**"]
+  },
   { 
     files: ["**/*.{js,mjs,cjs}"], 
     plugins: { js }, 
@@ -10,9 +14,13 @@ export default defineConfig([
     languageOptions: { 
       globals: {
         ...globals.browser,
-        ...globals.node,    // Habilita o 'process' e variáveis globais do Node.js
-        ...globals.jest     // Habilita 'test', 'expect', 'describe', etc.
+        ...globals.node,
+        ...globals.jest
       } 
-    } 
+    },
+    rules: {
+      // Configura o ESLint para ignorar parâmetros não utilizados que comecem com _
+      "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+    }
   },
 ]);

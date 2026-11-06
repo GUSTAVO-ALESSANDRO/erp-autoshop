@@ -6,9 +6,7 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
     let adminToken;
     let employeeToken;
     let customerToken;
-    let otherCustomerToken;
     let adminUserId;
-    let employeeUserId;
     let customerUserId;
     let otherCustomerUserId;
 
@@ -37,7 +35,7 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
             email: 'test_employee@autoshop.com',
             password: 'password123'
         });
-        employeeUserId = empRes.body.data.id;
+        empRes.body.data.id;
         
         // Promove explicitamente para EMPLOYEE no banco antes do login
         await pool.query("UPDATE users SET role = 'EMPLOYEE' WHERE email = 'test_employee@autoshop.com'");
@@ -74,7 +72,7 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
             email: 'test_other_customer@autoshop.com',
             password: 'password123'
         });
-        otherCustomerToken = otherCustLogin.body.token;
+        otherCustLogin.body.token;
     });
 
     afterAll(async () => {
