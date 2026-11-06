@@ -57,6 +57,14 @@ jobs:
           echo "DB_PASSWORD=postgres" >> $GITHUB_ENV
           echo "DB_NAME=autoshop_test" >> $GITHUB_ENV
 
+      # Executa os arquivos SQL de migration manualmente no banco da Action via psql
+      - name: Executar Migrations SQL no Banco de Testes
+        run: |
+          psql -h localhost -U postgres -d autoshop_test -f database/migrations/01_init_schema.sql
+          psql -h localhost -U postgres -d autoshop_test -f database/migrations/02_add_password_recovery_columns.sql
+        env:
+          PGPASSWORD: postgres
+
       # STEP 1: Linting e Testes Automatizados
       - name: Executar Lint (ESLint)
         run: npm run lint
