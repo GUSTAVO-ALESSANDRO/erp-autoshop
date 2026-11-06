@@ -95,6 +95,9 @@ jobs:
       # STEP 3: Análise de Qualidade e Segurança no SonarQube Cloud
       - name: Executar Scanner SonarQube Cloud
         uses: SonarSource/sonarqube-scan-action@v3.0.0
+        with:
+          args: >
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
