@@ -14,6 +14,22 @@ jobs:
   ci-cd-pipeline:
     runs-on: ubuntu-latest
 
+    # Serviço do PostgreSQL para os testes de integração rodarem na nuvem
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: autoshop_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       # Checkout do código
       - name: Checkout do código
@@ -31,6 +47,15 @@ jobs:
       # Instalação de dependências
       - name: Instalar dependências
         run: npm ci
+
+      # Variáveis de ambiente globais para os testes conectarem no Postgres da Action
+      - name: Definir Variáveis de Ambiente para Testes
+        run: |
+          echo "DB_HOST=localhost" >> $GITHUB_ENV
+          echo "DB_PORT=5432" >> $GITHUB_ENV
+          echo "DB_USER=postgres" >> $GITHUB_ENV
+          echo "DB_PASSWORD=postgres" >> $GITHUB_ENV
+          echo "DB_NAME=autoshop_test" >> $GITHUB_ENV
 
       # STEP 1: Linting e Testes Automatizados
       - name: Executar Lint (ESLint)
