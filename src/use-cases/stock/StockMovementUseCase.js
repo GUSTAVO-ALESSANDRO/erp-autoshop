@@ -87,4 +87,110 @@ export class StockMovementUseCase {
         const movements = await this.stockMovementRepository.findAll();
         return movements;
     }
+
+    // Atualiza uma movimentação de estoque e reajusta o saldo do produto via repositórios
+    async updateStockMovement(movementId, updateData, requesterUser) {
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
+            throw new BusinessRuleError('Acesso negado.');
+        }
+        if (!movementId || !isUuid(movementId)) {
+            throw new ValidationError('ID de movimentação inválido.');
+        }
+
+        const { type, quantity, reason } = updateData || {};
+
+        return await this.transactionManager.transaction(async (client) => {
+            const oldMov = await this.stockMovementRepository.findById(movementId, client, true);
+            if (!oldMov) {
+                throw new NotFoundError('Movimentação de estoque não encontrada.');
+            }
+
+            const product = await this.productRepository.findById(oldMov.product_id, client);
+            if (!product) throw new NotFoundError('Produto associado não encontrado.');
+
+            // Reverte o efeito da movimentação Antiga no estoque atual
+            let stockWithoutOld = product.current_stock;
+            if (oldMov.type === 'ENTRADA') {
+                stockWithoutOld -= oldMov.quantity;
+            } else if (oldMov.type === 'SAIDA') {
+                stockWithoutOld += oldMov.quantity;
+            } else if (oldMov.type === 'AJUSTE') {
+                stockWithoutOld = product.current_stock;
+            }
+
+            // Define e valida os novos valores enviados
+            const newType = type ? type.toUpperCase() : oldMov.type;
+            if (!ALLOWED_TYPES.includes(newType)) {
+                throw new ValidationError('Tipo de movimentação inválido. Use ENTRADA, SAIDA ou AJUSTE.');
+            }
+
+            const newQty = quantity !== undefined ? Number(quantity) : oldMov.quantity;
+            if (isNaN(newQty) || newQty <= 0) {
+                throw new ValidationError('A quantidade deve ser maior que zero.');
+            }
+
+            const newReason = reason !== undefined ? reason : oldMov.reason;
+
+            // Aplica o efeito da movimentação NOVA
+            let newBalance = stockWithoutOld;
+            if (newType === 'ENTRADA') {
+                newBalance += newQty;
+            } else if (newType === 'SAIDA') {
+                newBalance -= newQty;
+            } else if (newType === 'AJUSTE') {
+                newBalance = newQty;
+            }
+
+            if (newBalance < 0) {
+                throw new BusinessRuleError('A atualização resultaria em estoque negativo.');
+            }
+
+            // Atualiza o produto e a movimentação no banco de dados
+            await this.productRepository.updateStock(oldMov.product_id, newBalance, client);
+            const updatedMovement = await this.stockMovementRepository.update(
+                movementId, 
+                newType, 
+                newQty, 
+                newBalance, 
+                newReason, 
+                client
+            );
+            
+            return updatedMovement;
+        });
+    }
+
+    // Remove uma movimentação de estoque estornando seu efeito no saldo do produto
+    async deleteStockMovement(movementId, requesterUser) {
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
+            throw new BusinessRuleError('Acesso negado.');
+        }
+        if (!movementId || !isUuid(movementId)) {
+            throw new ValidationError('ID de movimentação inválido.');
+        }
+
+        return await this.transactionManager.transaction(async (client) => {
+            const mov = await this.stockMovementRepository.findById(movementId, client, true);
+            if (!mov) {
+                throw new NotFoundError('Movimentação de estoque não encontrada.');
+            }
+
+            const product = await this.productRepository.findById(mov.product_id, client);
+            if (!product) throw new NotFoundError('Produto associado não encontrado.');
+
+            let newBalance = product.current_stock;
+            if (mov.type === 'ENTRADA') {
+                newBalance -= mov.quantity;
+            } else if (mov.type === 'SAIDA') {
+                newBalance += mov.quantity;
+            }
+
+            if (newBalance < 0) {
+                throw new BusinessRuleError('Não é possível remover esta movimentação pois deixaria o estoque negativo.');
+            }
+
+            await this.productRepository.updateStock(mov.product_id, newBalance, client);
+            await this.stockMovementRepository.delete(movementId, client);
+        });
+    }
 }

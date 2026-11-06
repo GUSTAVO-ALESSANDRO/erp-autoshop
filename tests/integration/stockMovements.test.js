@@ -72,7 +72,7 @@ describe('Integration Tests - Stock Movements, Initial Stock & Audit', () => {
 
         expect(res.status).toBe(201);
         expect(res.body.status).toBe('success');
-        expect(res.body.data.balance_after).toBe(15); // 5 inicial + 10 entrada
+        expect(res.body.data.balance_after).toBe(15);
     });
 
     it('Deve realizar SAIDA de estoque com sucesso', async () => {
@@ -86,7 +86,7 @@ describe('Integration Tests - Stock Movements, Initial Stock & Audit', () => {
             });
 
         expect(res.status).toBe(201);
-        expect(res.body.data.balance_after).toBe(12); // 15 - 3
+        expect(res.body.data.balance_after).toBe(12);
     });
 
     it('Deve realizar AJUSTE de estoque com sucesso', async () => {
@@ -100,7 +100,7 @@ describe('Integration Tests - Stock Movements, Initial Stock & Audit', () => {
             });
 
         expect(res.status).toBe(201);
-        expect(res.body.data.balance_after).toBe(25); // Ajustado para 25
+        expect(res.body.data.balance_after).toBe(25);
     });
 
     it('Deve impedir SAIDA que resulte em estoque negativo', async () => {
@@ -172,24 +172,50 @@ describe('Integration Tests - Stock Movements, Initial Stock & Audit', () => {
         expect(res.status).toBe(400);
     });
 
-    it('Deve realizar AJUSTE de estoque com sucesso', async () => {
-        const res = await request(app)
-            .post(`/stock/products/${productId}/stock`)
-            .set('Authorization', `Bearer ${adminToken}`)
-            .send({
-                type: 'AJUSTE',
-                quantity: 20,
-                reason: 'Ajuste de inventário'
-            });
-
-        expect(res.status).toBe(201);
-        expect(res.body.data.balance_after).toBe(20);
-    });
-
     it('Deve listar todas as movimentações do repositório diretamente', async () => {
         const res = await request(app)
             .get('/stock')
             .set('Authorization', `Bearer ${adminToken}`);
         expect(res.status).toBe(200);
+    });
+
+    it('Deve atualizar uma movimentação de estoque com sucesso via PUT', async () => {
+        const listRes = await request(app)
+            .get(`/stock/products/${productId}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        
+        const movementId = listRes.body.data[0].id;
+
+        const updateRes = await request(app)
+            .put(`/stock/${movementId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                quantity: 8,
+                reason: 'Ajuste de quantidade da movimentação'
+            });
+
+        expect(updateRes.status).toBe(200);
+        expect(updateRes.body.status).toBe('success');
+        expect(updateRes.body.data.quantity).toBe(8);
+    });
+
+    it('Deve remover uma movimentação de estoque com sucesso via DELETE e estornar o saldo', async () => {
+        const createMov = await request(app)
+            .post(`/stock/products/${productId}/stock`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                type: 'ENTRADA',
+                quantity: 4,
+                reason: 'Para teste de exclusão'
+            });
+        
+        const movementId = createMov.body.data.id;
+
+        const deleteRes = await request(app)
+            .delete(`/stock/${movementId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(deleteRes.status).toBe(200);
+        expect(deleteRes.body.status).toBe('success');
     });
 });

@@ -23,5 +23,7 @@ const stockMovementController = new StockMovementController(stockMovementUseCase
 stockRoutes.get('/', verifyToken, checkRole(['EMPLOYEE', 'ADMIN']), (req, res, next) => stockMovementController.getAll(req, res, next));
 stockRoutes.post('/products/:id/stock', verifyToken, checkRole(['EMPLOYEE', 'ADMIN']), (req, res, next) => stockMovementController.create(req, res, next));
 stockRoutes.get('/products/:id/stock-movements', verifyToken, checkRole(['EMPLOYEE', 'ADMIN']), (req, res, next) => stockMovementController.getByProduct(req, res, next));
+stockRoutes.put('/:id', verifyToken, checkRole(['EMPLOYEE', 'ADMIN']), (req, res, next) => stockMovementController.update(req, res, next));
+stockRoutes.delete('/:id', verifyToken, checkRole(['EMPLOYEE', 'ADMIN']), (req, res, next) => stockMovementController.remove(req, res, next));
 
 export { stockRoutes };

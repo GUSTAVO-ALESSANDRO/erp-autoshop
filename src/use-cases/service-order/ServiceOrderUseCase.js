@@ -3,15 +3,17 @@ import { ServiceOrder } from '../../domain/entities/ServiceOrder.js';
 import { ServiceOrderItem } from '../../domain/entities/ServiceOrderItem.js';
 import { ValidationError, NotFoundError, BusinessRuleError } from '../../domain/errors/DomainErrors.js';
 import { isUuid, validateMinName, parseNonNegativeAmount } from '../../domain/validators.js';
+import { StockMovement } from '../../domain/entities/StockMovement.js';
 
 export class ServiceOrderUseCase {
     // Construtor atualizado recebendo os repositórios por contrato e o gerenciador de transações
-    constructor(serviceOrderRepository, productRepository, userRepository, emailService, transactionManager) {
+    constructor(serviceOrderRepository, productRepository, userRepository, emailService, transactionManager, stockMovementRepository) {
         this.serviceOrderRepository = serviceOrderRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.transactionManager = transactionManager;
+        this.stockMovementRepository = stockMovementRepository;
     }
 
     // Cria uma nova OS gerando o código sequencial via transação isolada na infraestrutura
@@ -42,9 +44,9 @@ export class ServiceOrderUseCase {
             if (!targetCustomerId || !isUuid(targetCustomerId)) {
                 throw new ValidationError('ID do cliente é obrigatório e deve ser um UUID válido.');
             }
-            const customer = await this.userRepository.findById(targetCustomerId);
-            if (!customer || !customer.isCustomer()) {
-                throw new NotFoundError('Cliente não encontrado ou ID inválido.');
+            const clientUser = await this.userRepository.findById(targetCustomerId);
+            if (!clientUser || !clientUser.isActive) {
+                throw new NotFoundError('Usuário não encontrado ou inativo.');
             }
         }
 
@@ -159,25 +161,35 @@ export class ServiceOrderUseCase {
                 throw new BusinessRuleError('Não é permitido adicionar peças em Ordens de Serviço concluídas ou canceladas.');
             }
 
-            // Verifica e realiza a movimentação imediata no estoque com lock transacional
-            const prodRes = await client.query('SELECT current_stock FROM products WHERE id = $1 FOR UPDATE', [product_id]);
-            if (!prodRes.rows[0]) {
+            // Valida o estoque atual com bloqueio (FOR UPDATE) usando o repositório de produtos ou stock
+            const currentStock = await this.productRepository.getCurrentStockWithLock(product_id, client);
+            if (currentStock === null) {
                 throw new NotFoundError('Produto não encontrado.');
             }
-            const currentStock = Number(prodRes.rows[0].current_stock);
+
             if (currentStock < qty) {
                 throw new BusinessRuleError(`Estoque insuficiente para o produto. Disponível: ${currentStock}, Solicitado: ${qty}`);
             }
 
             const newBalance = currentStock - qty;
-            await client.query('UPDATE products SET current_stock = $1 WHERE id = $2', [newBalance, product_id]);
-            await client.query(
-                `INSERT INTO stock_movements (id, product_id, type, quantity, balance_after, reason, created_at)
-                 VALUES (gen_random_uuid(), $1, 'SAIDA', $2, $3, $4, NOW())`,
-                [product_id, qty, newBalance, `Uso na Ordem de Serviço ${os.code}`]
-            );
 
+            // Cria a entidade de movimentação de estoque (SAÍDA)
+            const stockMovement = new StockMovement({
+                id: randomUUID(),
+                product_id: product_id,
+                type: 'SAIDA',
+                quantity: qty,
+                balance_after: newBalance,
+                reason: `Uso na Ordem de Serviço ${os.code}`
+            });
+
+            // Executa a baixa transacional e registro no histórico através do repositório de estoque
+            await this.stockMovementRepository.createWithTransaction(stockMovement, newBalance, client);
+
+            // Adiciona o item na Ordem de Serviço
             await this.serviceOrderRepository.addItem(osId, itemEntity, client);
+
+            // Recalcula o valor total da OS
             const updatedOs = await this.serviceOrderRepository.findById(osId, client);
             const itemsTotal = updatedOs.items.reduce((sum, item) => sum + (item.quantity * item.unit_sell_price), 0);
             const subtotal = itemsTotal + updatedOs.labor_cost;
@@ -185,8 +197,8 @@ export class ServiceOrderUseCase {
                 throw new ValidationError('O desconto não pode ser maior que o subtotal da Ordem de Serviço.');
             }
             await this.serviceOrderRepository.updateTotalAmount(osId, subtotal - updatedOs.discount, client);
-            const finalOs = await this.serviceOrderRepository.findById(osId, client);
-            return finalOs;
+
+            return await this.serviceOrderRepository.findById(osId, client);
         });
     }
 
@@ -280,5 +292,129 @@ export class ServiceOrderUseCase {
 
         const finalOs = await this.serviceOrderRepository.findById(osId);
         return finalOs;
+    }
+
+    // Exclui uma Ordem de Serviço e estorna o estoque de todos os seus itens (gerando ENTRADA em stock_movements)
+    async deleteServiceOrder(osId, requesterUser) {
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
+            throw new BusinessRuleError('Acesso negado.');
+        }
+        if (!osId || !isUuid(osId)) {
+            throw new ValidationError('ID de OS inválido.');
+        }
+
+        return await this.transactionManager.transaction(async (client) => {
+            const os = await this.serviceOrderRepository.findById(osId, client, true);
+            if (!os) throw new NotFoundError('Ordem de Serviço não encontrada.');
+
+            if (os.status === 'CONCLUIDO') {
+                throw new BusinessRuleError('Não é permitido excluir uma Ordem de Serviço já concluída.');
+            }
+
+            // Estorna cada item da OS de volta ao estoque
+            for (const item of os.items) {
+                const prodRes = await client.query('SELECT current_stock FROM products WHERE id = $1 FOR UPDATE', [item.product_id]);
+                if (prodRes.rows[0]) {
+                    const currentStock = Number(prodRes.rows[0].current_stock);
+                    const newBalance = currentStock + item.quantity;
+
+                    // Atualiza o estoque do produto
+                    await client.query('UPDATE products SET current_stock = $1 WHERE id = $2', [newBalance, item.product_id]);
+                    
+                    // Registra a movimentação de ENTRADA no histórico
+                    await client.query(
+                        `INSERT INTO stock_movements (id, product_id, type, quantity, balance_after, reason, created_at)
+                         VALUES (gen_random_uuid(), $1, 'ENTRADA', $2, $3, $4, NOW())`,
+                        [item.product_id, item.quantity, newBalance, `Estorno por exclusão da OS ${os.code}`]
+                    );
+                }
+            }
+
+            await this.serviceOrderRepository.removeAllItemsByOsId(osId, client);
+            await this.serviceOrderRepository.removeAllEmployeesByOsId(osId, client);
+            await this.serviceOrderRepository.delete(osId, client);
+        });
+    }
+
+    // Remove um item específico da OS e estorna a quantidade para o estoque (gerando ENTRADA em stock_movements)
+    async removeItemFromServiceOrder(osId, itemId, requesterUser) {
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
+            throw new BusinessRuleError('Acesso negado.');
+        }
+        if (!osId || !isUuid(osId) || !itemId || !isUuid(itemId)) {
+            throw new ValidationError('IDs inválidos.');
+        }
+
+        return await this.transactionManager.transaction(async (client) => {
+            const os = await this.serviceOrderRepository.findById(osId, client, true);
+            if (!os) throw new NotFoundError('Ordem de Serviço não encontrada.');
+
+            if (['CONCLUIDO', 'CANCELADO'].includes(os.status)) {
+                throw new BusinessRuleError('Não é permitido alterar itens de Ordens de Serviço concluídas ou canceladas.');
+            }
+
+            const item = os.items.find(i => i.id === itemId);
+            if (!item) {
+                throw new NotFoundError('Item não encontrado nesta Ordem de Serviço.');
+            }
+
+            // Remove o item e recupera os dados dele
+            const deletedItem = await this.serviceOrderRepository.removeItem(itemId, client);
+            if (deletedItem) {
+                // Estorna o estoque do produto correspondente
+                const prodRes = await client.query('SELECT current_stock FROM products WHERE id = $1 FOR UPDATE', [deletedItem.product_id]);
+                if (prodRes.rows[0]) {
+                    const currentStock = Number(prodRes.rows[0].current_stock);
+                    const newBalance = currentStock + Number(deletedItem.quantity);
+
+                    // Atualiza o estoque
+                    await client.query('UPDATE products SET current_stock = $1 WHERE id = $2', [newBalance, deletedItem.product_id]);
+                    
+                    // Registra a movimentação de ENTRADA no histórico
+                    await client.query(
+                        `INSERT INTO stock_movements (id, product_id, type, quantity, balance_after, reason, created_at)
+                         VALUES (gen_random_uuid(), $1, 'ENTRADA', $2, $3, $4, NOW())`,
+                        [deletedItem.product_id, deletedItem.quantity, newBalance, `Estorno por remoção de item da OS ${os.code}`]
+                    );
+                }
+            }
+
+            // Recalcula o valor total da OS
+            const updatedOs = await this.serviceOrderRepository.findById(osId, client);
+            const itemsTotal = updatedOs.items.reduce((sum, i) => sum + (i.quantity * i.unit_sell_price), 0);
+            const subtotal = itemsTotal + updatedOs.labor_cost;
+            const finalTotal = Math.max(0, subtotal - updatedOs.discount);
+            await this.serviceOrderRepository.updateTotalAmount(osId, finalTotal, client);
+
+            return await this.serviceOrderRepository.findById(osId, client);
+        });
+    }
+
+    // Desaloca funcionário da OS
+    async removeEmployeeFromServiceOrder(osId, employeeId, requesterUser) {
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
+            throw new BusinessRuleError('Acesso negado.');
+        }
+        if (!osId || !isUuid(osId) || !employeeId || !isUuid(employeeId)) {
+            throw new ValidationError('IDs inválidos.');
+        }
+
+        const os = await this.serviceOrderRepository.findById(osId);
+        if (!os) throw new NotFoundError('Ordem de Serviço não encontrada.');
+
+        if (['CONCLUIDO', 'CANCELADO'].includes(os.status)) {
+            throw new BusinessRuleError('Não é permitido alterar alocações em Ordens de Serviço concluídas ou canceladas.');
+        }
+
+        // Verifica se o funcionário realmente está alocado nesta OS
+        const isAssigned = os.employees && os.employees.some(emp => emp.employee_id === employeeId || emp.id === employeeId);
+        if (!isAssigned) {
+            throw new NotFoundError('Funcionário não encontrado nesta Ordem de Serviço.');
+        }
+
+        return await this.transactionManager.transaction(async (client) => {
+            await this.serviceOrderRepository.removeEmployee(osId, employeeId, client);
+            return await this.serviceOrderRepository.findById(osId, client);
+        });
     }
 }
