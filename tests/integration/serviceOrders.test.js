@@ -179,7 +179,6 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
         });
 
         it('Funcionário DEVE conseguir adicionar peças e funcionários mesmo com a OS em EM_EXECUCAO', async () => {
-            // Adiciona mais um item com a OS já em andamento
             const itemResponse = await request(app)
                 .post(`/service-orders/${createdOsId}/items`)
                 .set('Authorization', `Bearer ${employeeToken}`)
@@ -245,7 +244,6 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
         });
 
         it('Cliente (CUSTOMER) deve conseguir consultar APENAS a sua própria OS', async () => {
-            // Cria uma OS válida pelo Admin para o cliente 1
             const osAdmin = await request(app)
                 .post('/service-orders')
                 .set('Authorization', `Bearer ${adminToken}`)
@@ -257,13 +255,11 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
                 });
             const customerOsId = osAdmin.body.data.id;
 
-            // Cliente dono consegue ver
             const resOwner = await request(app)
                 .get(`/service-orders/${customerOsId}`)
                 .set('Authorization', `Bearer ${customerToken}`);
             expect(resOwner.status).toBe(200);
 
-            // Outro cliente NÃO consegue ver (Isolamento de dados)
             const resOther = await request(app)
                 .get(`/service-orders/${customerOsId}`)
                 .set('Authorization', `Bearer ${otherCustomerToken}`);
@@ -298,8 +294,25 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
             expect(response.status).toBe(404);
         });
 
+        it('Funcionário deve conseguir listar Ordens de Serviço filtrando por status', async () => {
+            const response = await request(app)
+                .get('/service-orders?status=ORCAMENTO')
+                .set('Authorization', `Bearer ${employeeToken}`);
+
+            expect(response.status).toBe(200);
+            expect(Array.isArray(response.body.data)).toBe(true);
+        });
+
+        it('Funcionário deve conseguir listar Ordens de Serviço filtrando por status e cliente combinados', async () => {
+            const response = await request(app)
+                .get(`/service-orders?status=ORCAMENTO&customer_id=${customerId}`)
+                .set('Authorization', `Bearer ${employeeToken}`);
+
+            expect(response.status).toBe(200);
+            expect(Array.isArray(response.body.data)).toBe(true);
+        });
+
         it('Funcionário deve conseguir remover um item da OS e estornar o estoque', async () => {
-            // Primeiro abre uma nova OS e adiciona um item
             const newOs = await request(app)
                 .post('/service-orders')
                 .set('Authorization', `Bearer ${employeeToken}`)
@@ -318,7 +331,6 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
             
             const itemId = itemRes.body.data.items[0].id;
 
-            // Remove o item
             const deleteRes = await request(app)
                 .delete(`/service-orders/${tempOsId}/items/${itemId}`)
                 .set('Authorization', `Bearer ${employeeToken}`);

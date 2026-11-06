@@ -4,7 +4,7 @@ export function notFoundHandler(req, res) {
 }
 
 // Middleware global blindado por nome da classe e propriedades de erro
-export function errorHandler(err, req, res, next) {
+export function errorHandler(err, req, res, _next) {
     const body = (message) => ({ status: 'error', message });
     const errorName = err.name || '';
     const messageLower = (err.message || '').toLowerCase();

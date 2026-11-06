@@ -1,0 +1,147 @@
+name: AutoShop ERP CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+  ci-cd-pipeline:
+    runs-on: ubuntu-latest
+
+    # Serviço do PostgreSQL para os testes de integração rodarem na nuvem
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: autoshop_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # Checkout do código
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Configuração do ambiente Node.js v20
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Instalação segura de dependências
+      - name: Instalar dependências
+        run: npm ci --ignore-scripts
+
+      # Definindo variáveis de ambiente gerais
+      - name: Definir Variáveis de Ambiente para Testes
+        env:
+          MAIL_HOST_SECURE: ${{ secrets.MAIL_HOST }}
+          MAIL_PORT_SECURE: ${{ secrets.MAIL_PORT }}
+          MAIL_USER_SECURE: ${{ secrets.MAIL_USER }}
+          MAIL_PASS_SECURE: ${{ secrets.MAIL_PASS }}
+        run: |
+          echo "PORT=3000" >> $GITHUB_ENV
+          echo "DB_HOST=localhost" >> $GITHUB_ENV
+          echo "DB_PORT=5432" >> $GITHUB_ENV
+          echo "DB_USER=postgres" >> $GITHUB_ENV
+          echo "DB_PASSWORD=postgres" >> $GITHUB_ENV
+          echo "DB_NAME=autoshop_test" >> $GITHUB_ENV
+          echo "DB_SSL=false" >> $GITHUB_ENV
+          echo "JWT_SECRET=secret_autoshop_test_ci" >> $GITHUB_ENV
+          echo "JWT_EXPIRES_IN=5h" >> $GITHUB_ENV
+          echo "BASE_URL=http://localhost:3000" >> $GITHUB_ENV
+          echo "MAIL_HOST=$MAIL_HOST_SECURE" >> $GITHUB_ENV
+          echo "MAIL_PORT=$MAIL_PORT_SECURE" >> $GITHUB_ENV
+          echo "MAIL_USER=$MAIL_USER_SECURE" >> $GITHUB_ENV
+          echo "MAIL_PASS=$MAIL_PASS_SECURE" >> $GITHUB_ENV
+
+      # Executa os arquivos SQL de migration manualmente no banco da Action via psql
+      - name: Executar Migrations SQL no Banco de Testes
+        run: |
+          psql -h localhost -U postgres -d autoshop_test -f database/migrations/01_init_schema.sql
+          psql -h localhost -U postgres -d autoshop_test -f database/migrations/02_add_password_recovery_columns.sql
+        env:
+          PGPASSWORD: postgres
+
+      # STEP 1: Linting e Testes Automatizados
+      - name: Executar Lint (ESLint)
+        run: npm run lint
+
+      - name: Executar Testes com Cobertura (Jest)
+        run: npm run test:ci
+
+      # STEP 2: Análise de Exposição de Segredos
+      - name: Verificar exposição de segredos com Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # STEP 3: Análise de Qualidade e Segurança no SonarQube Cloud
+      - name: Executar Scanner SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@v3.0.0
+        with:
+          args: >
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Verificar Quality Gate do SonarQube
+        uses: SonarSource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      # STEP 4: Segurança de Containers com Trivy
+      - name: Build da imagem Docker para validação de segurança
+        run: docker build -t erp-autoshop:test .
+
+      - name: Escanear imagem Docker com Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'erp-autoshop:test'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      # STEP 5: Build Final e Push da Imagem para o Docker Hub
+      - name: Login no Docker Hub
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Enviar Imagem para o Docker Hub
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/erp-autoshop:latest
+            ${{ secrets.DOCKER_USERNAME }}/erp-autoshop:${{ github.sha }}
+
+      # STEP 6: Deploy Automatizado no Render via Deploy Hook após o merge
+      - name: Disparar Deploy Hook no Render
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        run: |
+          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}

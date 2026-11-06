@@ -1,14 +1,13 @@
 import request from 'supertest';
 import { app } from '../../src/server.js';
 import { pool } from '../../src/infrastructure/database/connection.js';
+import { UserPresenter } from '../../src/adapters/presenters/UserPresenter.js';
 
 describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recovery)', () => {
     let adminToken;
     let employeeToken;
     let customerToken;
-    let otherCustomerToken;
     let adminUserId;
-    let employeeUserId;
     let customerUserId;
     let otherCustomerUserId;
 
@@ -37,7 +36,7 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
             email: 'test_employee@autoshop.com',
             password: 'password123'
         });
-        employeeUserId = empRes.body.data.id;
+        empRes.body.data.id;
         
         // Promove explicitamente para EMPLOYEE no banco antes do login
         await pool.query("UPDATE users SET role = 'EMPLOYEE' WHERE email = 'test_employee@autoshop.com'");
@@ -74,7 +73,7 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
             email: 'test_other_customer@autoshop.com',
             password: 'password123'
         });
-        otherCustomerToken = otherCustLogin.body.token;
+        otherCustLogin.body.token;
     });
 
     afterAll(async () => {
@@ -415,5 +414,16 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
         });
         expect(response.status).toBe(401);
         expect(response.body.status).toBe('error');
+    });
+
+    it('EMPLOYEE deve conseguir listar clientes com sucesso e acionar o filtro do repositório', async () => {
+        const res = await request(app)
+            .get('/users?role=CUSTOMER')
+            .set('Authorization', `Bearer ${employeeToken}`);
+        expect(res.status).toBe(200);
+    });
+
+    it('UserPresenter deve lidar com nulos', () => {
+        expect(UserPresenter.toPublic(null)).toBeNull();
     });
 });

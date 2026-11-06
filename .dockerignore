@@ -1,0 +1,29 @@
+# Dependências e diretórios locais
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Controle de versão
+.git
+.gitignore
+.github
+
+# Testes, cobertura e relatórios
+coverage
+tests
+*.test.js
+*.spec.js
+
+# Documentação, arquivos de configuração IDE e OS
+README.md
+docs
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Arquivos sensíveis de ambiente local
+.env
+.env.example
+.env.local
