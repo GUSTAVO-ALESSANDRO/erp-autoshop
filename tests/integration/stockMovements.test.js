@@ -145,4 +145,51 @@ describe('Integration Tests - Stock Movements, Initial Stock & Audit', () => {
 
         expect(res.status).toBeGreaterThanOrEqual(400);
     });
+
+    it('Deve retornar erro ao tentar movimentar estoque com tipo inválido', async () => {
+        const res = await request(app)
+            .post(`/stock/products/${productId}/stock`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                type: 'TIPO_INVALIDO',
+                quantity: 10,
+                reason: 'Teste de erro'
+            });
+
+        expect(res.status).toBe(400);
+    });
+
+    it('Deve retornar erro ao tentar movimentar estoque com quantidade menor ou igual a zero', async () => {
+        const res = await request(app)
+            .post(`/stock/products/${productId}/stock`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                type: 'ENTRADA',
+                quantity: 0,
+                reason: 'Quantidade zero'
+            });
+
+        expect(res.status).toBe(400);
+    });
+
+    it('Deve realizar AJUSTE de estoque com sucesso', async () => {
+        const res = await request(app)
+            .post(`/stock/products/${productId}/stock`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                type: 'AJUSTE',
+                quantity: 20,
+                reason: 'Ajuste de inventário'
+            });
+
+        expect(res.status).toBe(201);
+        expect(res.body.data.balance_after).toBe(20);
+    });
+
+    it('Deve listar todas as movimentações do repositório diretamente', async () => {
+        const res = await request(app)
+            .get('/stock')
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(res.status).toBe(200);
+    });
 });

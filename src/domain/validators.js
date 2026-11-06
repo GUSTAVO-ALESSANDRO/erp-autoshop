@@ -16,7 +16,7 @@ export function validatePassword(password) {
 
 // Valida se o número é maior ou igual ao mínimo 
 export function validateMinNumber(value, fieldName, min = 0) {
-    if (value === undefined || value === null || typeof value !== 'number' || isNaN(value) || value < min) {
+    if (value === undefined || value === null || typeof value !== 'number' || Number.isNaN(value) || value < min) {
         throw new ValidationError(`O valor do campo ${fieldName} deve ser maior ou igual a ${min}.`);
     }
 }

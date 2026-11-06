@@ -22,7 +22,7 @@ const passwordController = new PasswordController(passwordRecoveryUseCase);
 
 // Rotas de Autenticação
 authRoutes.post('/login', (req, res, next) => authController.login(req, res, next));
-authRoutes.post('/logout', verifyToken, (req, res, next) => {
+authRoutes.post('/logout', verifyToken, (req, res) => {
     // Como JWT é stateless, o logout bem-sucedido instrui o cliente a descartar o token
     return res.status(200).json({ status: 'success', message: 'Logout realizado com sucesso.' });
 });

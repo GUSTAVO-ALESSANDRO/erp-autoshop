@@ -22,7 +22,7 @@ export class ProductUseCase {
         // Se o preço de venda não foi informado, assume o preço de compra
         if (sell_price === undefined || sell_price === null) {
             sell_price = cost_price;
-        } else if (typeof sell_price !== 'number' || isNaN(sell_price)) {
+        } else if (typeof sell_price !== 'number' || Number.isNaN(sell_price)) {
             throw new ValidationError('O preço de venda deve ser um número válido.');
         }
 

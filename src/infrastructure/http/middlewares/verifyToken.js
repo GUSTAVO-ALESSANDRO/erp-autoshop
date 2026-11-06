@@ -24,7 +24,7 @@ export function verifyToken(req, res, next, tokenService = defaultTokenService) 
         // Anexa a instância da Entidade User na requisição para ter acesso aos métodos de role
         req.user = new User(decoded);
         return next(); // Prossegue para o próximo middleware ou controller
-    } catch (error) {
+    } catch {
         // Repassa o erro para o errorHandler centralizado
         return next(new AuthenticationError('Token inválido ou expirado.'));
     }
@@ -46,7 +46,7 @@ export function optionalVerifyToken(req, res, next, tokenService = defaultTokenS
         // Se houver token válido, anexa os dados
         const decoded = tokenService.verifyToken(token);
         req.user = new User(decoded);
-    } catch (error) {
+    } catch {
         // Se o token for inválido, pode ignorar para ter cadastro público
         req.user = undefined;
     }
