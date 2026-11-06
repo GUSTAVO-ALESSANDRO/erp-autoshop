@@ -44,12 +44,17 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      # Instalação de dependências
+      # Instalação segura de dependências
       - name: Instalar dependências
-        run: npm ci
+        run: npm ci --ignore-scripts
 
-      # Variáveis de ambiente
+      # Definindo variáveis de ambiente gerais
       - name: Definir Variáveis de Ambiente para Testes
+        env:
+          MAIL_HOST_SECURE: ${{ secrets.MAIL_HOST }}
+          MAIL_PORT_SECURE: ${{ secrets.MAIL_PORT }}
+          MAIL_USER_SECURE: ${{ secrets.MAIL_USER }}
+          MAIL_PASS_SECURE: ${{ secrets.MAIL_PASS }}
         run: |
           echo "PORT=3000" >> $GITHUB_ENV
           echo "DB_HOST=localhost" >> $GITHUB_ENV
@@ -61,10 +66,10 @@ jobs:
           echo "JWT_SECRET=secret_autoshop_test_ci" >> $GITHUB_ENV
           echo "JWT_EXPIRES_IN=5h" >> $GITHUB_ENV
           echo "BASE_URL=http://localhost:3000" >> $GITHUB_ENV
-          echo "MAIL_HOST=${{ secrets.MAIL_HOST }}" >> $GITHUB_ENV
-          echo "MAIL_PORT=${{ secrets.MAIL_PORT }}" >> $GITHUB_ENV
-          echo "MAIL_USER=${{ secrets.MAIL_USER }}" >> $GITHUB_ENV
-          echo "MAIL_PASS=${{ secrets.MAIL_PASS }}" >> $GITHUB_ENV
+          echo "MAIL_HOST=$MAIL_HOST_SECURE" >> $GITHUB_ENV
+          echo "MAIL_PORT=$MAIL_PORT_SECURE" >> $GITHUB_ENV
+          echo "MAIL_USER=$MAIL_USER_SECURE" >> $GITHUB_ENV
+          echo "MAIL_PASS=$MAIL_PASS_SECURE" >> $GITHUB_ENV
 
       # Executa os arquivos SQL de migration manualmente no banco da Action via psql
       - name: Executar Migrations SQL no Banco de Testes
