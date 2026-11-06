@@ -48,19 +48,23 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      # Variáveis de ambiente para os testes (Banco + Secrets de SMTP do GitHub reutilizando o usuário como remetente)
+      # Variáveis de ambiente
       - name: Definir Variáveis de Ambiente para Testes
         run: |
+          echo "PORT=3000" >> $GITHUB_ENV
           echo "DB_HOST=localhost" >> $GITHUB_ENV
           echo "DB_PORT=5432" >> $GITHUB_ENV
           echo "DB_USER=postgres" >> $GITHUB_ENV
           echo "DB_PASSWORD=postgres" >> $GITHUB_ENV
           echo "DB_NAME=autoshop_test" >> $GITHUB_ENV
-          echo "SMTP_HOST=${{ secrets.SMTP_HOST }}" >> $GITHUB_ENV
-          echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> $GITHUB_ENV
-          echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> $GITHUB_ENV
-          echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> $GITHUB_ENV
-          echo "EMAIL_FROM=${{ secrets.SMTP_USER }}" >> $GITHUB_ENV
+          echo "DB_SSL=false" >> $GITHUB_ENV
+          echo "JWT_SECRET=secret_autoshop_test_ci" >> $GITHUB_ENV
+          echo "JWT_EXPIRES_IN=5h" >> $GITHUB_ENV
+          echo "BASE_URL=http://localhost:3000" >> $GITHUB_ENV
+          echo "MAIL_HOST=${{ secrets.MAIL_HOST }}" >> $GITHUB_ENV
+          echo "MAIL_PORT=${{ secrets.MAIL_PORT }}" >> $GITHUB_ENV
+          echo "MAIL_USER=${{ secrets.MAIL_USER }}" >> $GITHUB_ENV
+          echo "MAIL_PASS=${{ secrets.MAIL_PASS }}" >> $GITHUB_ENV
 
       # Executa os arquivos SQL de migration manualmente no banco da Action via psql
       - name: Executar Migrations SQL no Banco de Testes
