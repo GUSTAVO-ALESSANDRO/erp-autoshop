@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { app } from '../../src/server.js';
 import { pool } from '../../src/infrastructure/database/connection.js';
+import { UserPresenter } from '../../src/adapters/presenters/UserPresenter.js';
 
 describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recovery)', () => {
     let adminToken;
@@ -420,5 +421,9 @@ describe('Integration Tests - AutoShop ERP (Auth, RBAC, Users & Password Recover
             .get('/users?role=CUSTOMER')
             .set('Authorization', `Bearer ${employeeToken}`);
         expect(res.status).toBe(200);
+    });
+
+    it('UserPresenter deve lidar com nulos', () => {
+        expect(UserPresenter.toPublic(null)).toBeNull();
     });
 });

@@ -218,4 +218,103 @@ describe('Integration Tests - Stock Movements, Initial Stock & Audit', () => {
         expect(deleteRes.status).toBe(200);
         expect(deleteRes.body.status).toBe('success');
     });
+
+    it('Deve atualizar o tipo de movimentação de SAIDA para ENTRADA com sucesso', async () => {
+        // Cria uma saída
+        const createMov = await request(app)
+            .post(`/stock/products/${productId}/stock`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                type: 'SAIDA',
+                quantity: 2,
+                reason: 'Teste troca tipo'
+            });
+        
+        const movementId = createMov.body.data.id;
+
+        // Atualiza mudando o tipo para ENTRADA
+        const updateRes = await request(app)
+            .put(`/stock/${movementId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                type: 'ENTRADA',
+                quantity: 2,
+                reason: 'Corrigido para entrada'
+            });
+
+        expect(updateRes.status).toBe(200);
+        expect(updateRes.body.data.type).toBe('ENTRADA');
+    });
+
+    it('Deve listar movimentações filtrando por ID de produto específico via repositório/rota', async () => {
+        const res = await request(app)
+            .get(`/stock/products/${productId}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.status).toBe(200);
+        expect(Array.isArray(res.body.data)).toBe(true);
+        expect(res.body.data.length).toBeGreaterThan(0);
+        expect(res.body.data[0].product_id).toBe(productId);
+    });
+
+    it('Deve retornar 404 ao tentar buscar histórico de movimentações de um produto com UUID inexistente', async () => {
+        const fakeUuid = '00000000-0000-0000-0000-000000000000';
+        const res = await request(app)
+            .get(`/stock/products/${fakeUuid}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.status).toBe(404);
+    });
+
+    it('Deve retornar 400 ao tentar atualizar uma movimentação com dados inválidos (quantidade zerada ou negativa)', async () => {
+        const listRes = await request(app)
+            .get(`/stock/products/${productId}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        
+        const movementId = listRes.body.data[0].id;
+
+        const updateRes = await request(app)
+            .put(`/stock/${movementId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                quantity: -5,
+                reason: 'Quantidade inválida'
+            });
+
+        expect(updateRes.status).toBe(400);
+    });
+    
+    it('Deve executar busca por ID com o parâmetro forUpdate ativado (true)', async () => {
+        const listRes = await request(app)
+            .get(`/stock/products/${productId}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        
+        const movementId = listRes.body.data[0].id;
+
+        // Importa diretamente o repositório para testar o método isolado com forUpdate = true e pool padrão
+        const { PostgresStockMovementRepository } = await import('../../src/infrastructure/repositories/PostgresStockMovementRepository.js');
+        const repo = new PostgresStockMovementRepository();
+
+        const mov = await repo.findById(movementId, pool, true);
+        expect(mov).toBeDefined();
+        expect(mov.id).toBe(movementId);
+    });
+
+    it('Deve retornar null ao buscar por um ID de movimentação inexistente via repositório', async () => {
+        const { PostgresStockMovementRepository } = await import('../../src/infrastructure/repositories/PostgresStockMovementRepository.js');
+        const repo = new PostgresStockMovementRepository();
+
+        const fakeId = '00000000-0000-0000-0000-000000000000';
+        const mov = await repo.findById(fakeId);
+        expect(mov).toBeNull();
+    });
+
+    it('Deve lidar com atualização retornando null caso a movimentação não exista no banco', async () => {
+        const { PostgresStockMovementRepository } = await import('../../src/infrastructure/repositories/PostgresStockMovementRepository.js');
+        const repo = new PostgresStockMovementRepository();
+
+        const fakeId = '00000000-0000-0000-0000-000000000000';
+        const updated = await repo.update(fakeId, 'ENTRADA', 10, 10, 'Teste', pool);
+        expect(updated).toBeNull();
+    });
 });

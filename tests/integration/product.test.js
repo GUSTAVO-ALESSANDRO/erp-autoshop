@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { app } from '../../src/server.js';
 import { pool } from '../../src/infrastructure/database/connection.js';
+import { ProductPresenter } from '../../src/adapters/presenters/ProductPresenter.js';
 
 describe('Integration Tests - Products CRUD & Stock', () => {
     let adminToken;
@@ -281,6 +282,11 @@ describe('Integration Tests - Products CRUD & Stock', () => {
                 .set('Authorization', `Bearer ${adminToken}`);
 
             expect(response.status).toBe(400);
+        });
+
+        it('ProductPresenter deve lidar com nulos', () => {
+            expect(ProductPresenter.toPrivate(null)).toBeNull();
+            expect(ProductPresenter.toPublic(null)).toBeNull();
         });
     });
 });
