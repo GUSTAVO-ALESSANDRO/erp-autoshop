@@ -1,4 +1,5 @@
 import express from 'express';
+import swaggerUi from 'swagger-ui-express';
 import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
 import { authRoutes } from './infrastructure/http/routes/authRoutes.js';
@@ -10,6 +11,7 @@ import { fipeRoutes } from './infrastructure/http/routes/fipeRoutes.js';
 import { serviceOrderRoutes } from './infrastructure/http/routes/serviceOrderRoutes.js';
 import { stockRoutes } from './infrastructure/http/routes/stockRoutes.js';
 import { dashboardRoutes } from './infrastructure/http/routes/dashboardRoutes.js';
+import { openApiDocument } from './infrastructure/http/openApiDocument.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +20,9 @@ const PORT = process.env.PORT || 3000;
 app.disable('x-powered-by');
 
 app.use(express.json());
+
+app.get('/api-docs.json', (_req, res) => res.json(openApiDocument));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 // Rotas de diagnostico do sistema
 app.get('/', (req, res) => {
