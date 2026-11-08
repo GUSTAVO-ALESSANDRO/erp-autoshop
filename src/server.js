@@ -14,6 +14,9 @@ import { dashboardRoutes } from './infrastructure/http/routes/dashboardRoutes.js
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Desativa o cabeçalho X-Powered-By para mitigar rastreamento de tecnologia
+app.disable('x-powered-by');
+
 app.use(express.json());
 
 // Rotas de diagnostico do sistema

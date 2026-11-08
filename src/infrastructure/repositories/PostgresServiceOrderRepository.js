@@ -167,6 +167,38 @@ export class PostgresServiceOrderRepository {
         });
     }
 
+    // Atualiza os dados gerais da Ordem de Serviço (título, descrição, veículo, mão de obra, desconto)
+    async update(entity, dbClient = pool) {
+        const query = `
+            UPDATE service_orders 
+            SET vehicle_brand = $1, 
+                vehicle_model = $2, 
+                vehicle_year = $3, 
+                vehicle_fipe_code = $4, 
+                title = $5, 
+                description = $6, 
+                labor_cost = $7, 
+                discount = $8, 
+                total_amount = $9
+            WHERE id = $10
+            RETURNING *;
+        `;
+        const values = [
+            entity.vehicle_brand,
+            entity.vehicle_model,
+            entity.vehicle_year,
+            entity.vehicle_fipe_code,
+            entity.title,
+            entity.description,
+            entity.labor_cost,
+            entity.discount,
+            entity.total_amount,
+            entity.id
+        ];
+        const res = await dbClient.query(query, values);
+        return res.rows[0] ? this.toEntity(res.rows[0]) : null;
+    }
+
     // Adiciona um item congelando os preços unitários no momento da adição
     async addItem(osId, itemEntity, dbClient = pool) {
         const query = `

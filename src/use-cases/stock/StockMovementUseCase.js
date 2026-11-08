@@ -125,7 +125,7 @@ export class StockMovementUseCase {
             }
 
             const newQty = quantity !== undefined ? Number(quantity) : oldMov.quantity;
-            if (isNaN(newQty) || newQty <= 0) {
+            if (Number.isNaN(newQty) || newQty <= 0) {
                 throw new ValidationError('A quantidade deve ser maior que zero.');
             }
 
