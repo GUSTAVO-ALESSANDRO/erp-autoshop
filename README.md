@@ -433,6 +433,22 @@ erDiagram
 | GET | `/fipe/brands/:brandId/models/:modelId/years` | Lista os anos disponíveis do modelo. | Logado |
 | GET | `/fipe/price` | Preço FIPE: `?brandId=&modelId=&yearId=` ou `?fipeCode=&yearId=`. | Logado |
 
+Aqui está o texto ajustado e integrado formalmente para ser inserido exatamente entre a seção da Tabela FIPE e a Infraestrutura e Pipeline DevOps, mantendo a consistência técnica e o tom profissional do seu README:
+
+---
+
+### Documentação da API (Swagger)
+
+A aplicação conta com documentação interativa completa integrada diretamente ao ecossistema Express, detalhando todas as rotas, métodos HTTP, parâmetros, formatos de requisição e contratos de resposta.
+
+* **Interface interativa (Swagger UI):** `http://localhost:3000/api-docs`
+* **Especificação OpenAPI (JSON):** `http://localhost:3000/api-docs.json`
+
+**Como utilizar:**
+A especificação e a documentação das rotas e dos modelos estão centralizadas no arquivo `src/infrastructure/http/openApiDocument.js`. Para testar rotas protegidas na interface interativa, realize o login na aplicação, copie o token JWT gerado e utilize o botão **Authorize** no topo do Swagger UI.
+
+---
+
 ---
 
 ## 🛠️ Infraestrutura e Pipeline DevOps (CI/CD)
@@ -449,7 +465,7 @@ flowchart LR
     D --> E[2. Gitleaks<br/>varredura de segredos]
     E --> F[3. SonarQube Cloud<br/>+ Quality Gate]
     F --> G[4. Build da imagem<br/>+ Trivy]
-    G --> H{Push em<br/>dev ou main?}
+    G --> H{Push na <br/>main?}
     H -- Sim --> I[5. Push no Docker Hub<br/>latest e SHA do commit]
     I --> J[6. Deploy Hook<br/>Render]
     H -- Não, é PR --> K[Fim: somente validação]
