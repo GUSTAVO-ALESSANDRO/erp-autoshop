@@ -20,6 +20,23 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
     let productId;
     let createdOsId;
 
+    async function createServiceOrder(overrides = {}) {
+        const response = await request(app)
+            .post('/service-orders')
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                customer_id: customerId,
+                vehicle_brand: 'Ford',
+                vehicle_model: 'Focus',
+                title: 'OS para teste de atualização',
+                labor_cost: 100,
+                ...overrides
+            });
+
+        expect(response.status).toBe(201);
+        return response.body.data.id;
+    }
+
     async function cleanServiceOrderFixtures() {
         const customerQuery = "SELECT id FROM users WHERE email = 'customer_os_test@autoshop.com'";
         await pool.query(`DELETE FROM service_order_items WHERE os_id IN (SELECT id FROM service_orders WHERE customer_id IN (${customerQuery}))`);
@@ -111,277 +128,433 @@ describe('Integration Tests - Service Orders (OS) & Business Rules', () => {
         await pool.end();
     });
 
-    describe('Caminho Feliz: Abertura, Adição de Itens, Alocação e Conclusão', () => {
-        it('Funcionário deve conseguir abrir uma Ordem de Serviço (ORCAMENTO)', async () => {
-            const response = await request(app)
-                .post('/service-orders')
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    customer_id: customerId,
-                    vehicle_brand: 'Chevrolet',
-                    vehicle_model: 'Corsa',
-                    vehicle_year: '2005',
-                    vehicle_fipe_code: '004278-1',
-                    title: 'Revisão Geral de Suspensão',
-                    description: 'Troca de amortecedores dianteiros',
-                    labor_cost: 150.00,
-                    discount: 20.00
-                });
+    it('Funcionário deve conseguir abrir uma Ordem de Serviço (ORCAMENTO)', async () => {
+        const response = await request(app)
+            .post('/service-orders')
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                customer_id: customerId,
+                vehicle_brand: 'Chevrolet',
+                vehicle_model: 'Corsa',
+                vehicle_year: '2005',
+                vehicle_fipe_code: '004278-1',
+                title: 'Revisão Geral de Suspensão',
+                description: 'Troca de amortecedores dianteiros',
+                labor_cost: 150.00,
+                discount: 20.00
+            });
 
-            expect(response.status).toBe(201);
-            expect(response.body.status).toBe('success');
-            expect(response.body.data).toHaveProperty('id');
-            expect(response.body.data.code).toMatch(/^OS-\d{4}-\d{3}$/);
-            expect(response.body.data.status).toBe('ORCAMENTO');
-            expect(response.body.data.total_amount).toBe(130.00);
+        expect(response.status).toBe(201);
+        expect(response.body.status).toBe('success');
+        expect(response.body.data).toHaveProperty('id');
+        expect(response.body.data.code).toMatch(/^OS-\d{4}-\d{3}$/);
+        expect(response.body.data.status).toBe('ORCAMENTO');
+        expect(response.body.data.total_amount).toBe(130.00);
 
-            createdOsId = response.body.data.id;
-        });
-
-        it('Funcionário deve conseguir adicionar peças/itens à OS no status ORCAMENTO', async () => {
-            const response = await request(app)
-                .post(`/service-orders/${createdOsId}/items`)
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    product_id: productId,
-                    quantity: 1
-                });
-
-            expect(response.status).toBe(200);
-            expect(response.body.status).toBe('success');
-            expect(response.body.data.items.length).toBe(1);
-        });
-
-        it('Funcionário deve conseguir alocar um mecânico/funcionário à OS', async () => {
-            const response = await request(app)
-                .post(`/service-orders/${createdOsId}/employees`)
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    employee_id: employeeId
-                });
-
-            expect(response.status).toBe(200);
-            expect(response.body.status).toBe('success');
-            expect(response.body.data.employees.length).toBeGreaterThan(0);
-        });
-
-        it('Funcionário deve conseguir alterar status para EM_EXECUCAO (Baixa automática de estoque ACID)', async () => {
-            const response = await request(app)
-                .put(`/service-orders/${createdOsId}/status`)
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    status: 'EM_EXECUCAO'
-                });
-
-            expect(response.status).toBe(200);
-            expect(response.body.status).toBe('success');
-            expect(response.body.data.status).toBe('EM_EXECUCAO');
-        });
-
-        it('Funcionário DEVE conseguir adicionar peças e funcionários mesmo com a OS em EM_EXECUCAO', async () => {
-            const itemResponse = await request(app)
-                .post(`/service-orders/${createdOsId}/items`)
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    product_id: productId,
-                    quantity: 1
-                });
-            expect(itemResponse.status).toBe(200);
-        });
-
-        it('Funcionário deve conseguir alterar status para CONCLUIDO', async () => {
-            const response = await request(app)
-                .put(`/service-orders/${createdOsId}/status`)
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    status: 'CONCLUIDO'
-                });
-
-            expect(response.status).toBe(200);
-            expect(response.body.data.status).toBe('CONCLUIDO');
-        });
-
-        it('NÃO deve permitir adicionar peças ou funcionários em uma OS já CONCLUIDA', async () => {
-            const itemResponse = await request(app)
-                .post(`/service-orders/${createdOsId}/items`)
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    product_id: productId,
-                    quantity: 1
-                });
-            expect(itemResponse.status).toBeGreaterThanOrEqual(400);
-
-            const empResponse = await request(app)
-                .post(`/service-orders/${createdOsId}/employees`)
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    employee_id: employeeId
-                });
-            expect(empResponse.status).toBeGreaterThanOrEqual(400);
-        });
+        createdOsId = response.body.data.id;
     });
 
-    describe('Cenários de Exceção, Validações e Regras de Segurança (RBAC)', () => {
-        it('Cliente (CUSTOMER) NÃO deve conseguir criar uma Ordem de Serviço (Acesso Negado / 403 ou 422)', async () => {
-            const response = await request(app)
-                .post('/service-orders')
-                .set('Authorization', `Bearer ${customerToken}`)
-                .send({
-                    vehicle_brand: 'Ford',
-                    vehicle_model: 'Ka',
-                    title: 'Alinhamento'
-                });
+    it('Funcionário deve conseguir adicionar peças/itens à OS no status ORCAMENTO', async () => {
+        const response = await request(app)
+            .post(`/service-orders/${createdOsId}/items`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                product_id: productId,
+                quantity: 1
+            });
 
-            expect(response.status).toBeGreaterThanOrEqual(400);
-        });
+        expect(response.status).toBe(200);
+        expect(response.body.status).toBe('success');
+        expect(response.body.data.items.length).toBe(1);
+    });
 
-        it('Usuário deslogado NÃO deve conseguir criar, listar ou atualizar OS (401)', async () => {
-            const resPost = await request(app).post('/service-orders').send({ title: 'Teste' });
-            expect(resPost.status).toBe(401);
+    it('Funcionário deve conseguir alocar um mecânico/funcionário à OS', async () => {
+        const response = await request(app)
+            .post(`/service-orders/${createdOsId}/employees`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                employee_id: employeeId
+            });
 
-            const resGet = await request(app).get('/service-orders');
-            expect(resGet.status).toBe(401);
-        });
+        expect(response.status).toBe(200);
+        expect(response.body.status).toBe('success');
+        expect(response.body.data.employees.length).toBeGreaterThan(0);
+    });
 
-        it('Cliente (CUSTOMER) deve conseguir consultar APENAS a sua própria OS', async () => {
-            const osAdmin = await request(app)
-                .post('/service-orders')
-                .set('Authorization', `Bearer ${adminToken}`)
-                .send({
-                    customer_id: customerId,
-                    vehicle_brand: 'Honda',
-                    vehicle_model: 'Civic',
-                    title: 'Troca de Oleo'
-                });
-            const customerOsId = osAdmin.body.data.id;
+    it('Funcionário deve conseguir alterar status para EM_EXECUCAO (Baixa automática de estoque ACID)', async () => {
+        const response = await request(app)
+            .put(`/service-orders/${createdOsId}/status`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                status: 'EM_EXECUCAO'
+            });
 
-            const resOwner = await request(app)
-                .get(`/service-orders/${customerOsId}`)
-                .set('Authorization', `Bearer ${customerToken}`);
-            expect(resOwner.status).toBe(200);
+        expect(response.status).toBe(200);
+        expect(response.body.status).toBe('success');
+        expect(response.body.data.status).toBe('EM_EXECUCAO');
+    });
 
-            const resOther = await request(app)
-                .get(`/service-orders/${customerOsId}`)
-                .set('Authorization', `Bearer ${otherCustomerToken}`);
-            expect(resOther.status).toBeGreaterThanOrEqual(400);
-        });
+    it('Funcionário DEVE conseguir adicionar peças e funcionários mesmo com a OS em EM_EXECUCAO', async () => {
+        const itemResponse = await request(app)
+            .post(`/service-orders/${createdOsId}/items`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                product_id: productId,
+                quantity: 1
+            });
+        expect(itemResponse.status).toBe(200);
+    });
 
-        it('Cliente (CUSTOMER) NÃO deve conseguir adicionar peças ou alterar status de uma OS', async () => {
-            const itemResponse = await request(app)
-                .post(`/service-orders/${createdOsId}/items`)
-                .set('Authorization', `Bearer ${customerToken}`)
-                .send({
-                    product_id: productId,
-                    quantity: 1
-                });
-            expect(itemResponse.status).toBeGreaterThanOrEqual(400);
+    it('Funcionário deve conseguir alterar status para CONCLUIDO', async () => {
+        const response = await request(app)
+            .put(`/service-orders/${createdOsId}/status`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                status: 'CONCLUIDO'
+            });
 
-            const statusResponse = await request(app)
-                .put(`/service-orders/${createdOsId}/status`)
-                .set('Authorization', `Bearer ${customerToken}`)
-                .send({
-                    status: 'APROVADO'
-                });
-            expect(statusResponse.status).toBeGreaterThanOrEqual(400);
-        });
+        expect(response.status).toBe(200);
+        expect(response.body.data.status).toBe('CONCLUIDO');
+    });
 
-        it('Deve retornar 404 ao buscar por um ID de OS inexistente ou malformado', async () => {
-            const fakeUuid = '00000000-0000-0000-0000-000000000000';
-            const response = await request(app)
-                .get(`/service-orders/${fakeUuid}`)
-                .set('Authorization', `Bearer ${adminToken}`);
+    it('NÃO deve permitir adicionar peças ou funcionários em uma OS já CONCLUIDA', async () => {
+        const itemResponse = await request(app)
+            .post(`/service-orders/${createdOsId}/items`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                product_id: productId,
+                quantity: 1
+            });
+        expect(itemResponse.status).toBeGreaterThanOrEqual(400);
 
-            expect(response.status).toBe(404);
-        });
+        const empResponse = await request(app)
+            .post(`/service-orders/${createdOsId}/employees`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                employee_id: employeeId
+            });
+        expect(empResponse.status).toBeGreaterThanOrEqual(400);
+    });
 
-        it('Funcionário deve conseguir listar Ordens de Serviço filtrando por status', async () => {
-            const response = await request(app)
-                .get('/service-orders?status=ORCAMENTO')
-                .set('Authorization', `Bearer ${employeeToken}`);
+    it('Cliente (CUSTOMER) NÃO deve conseguir criar uma Ordem de Serviço (Acesso Negado / 403 ou 422)', async () => {
+        const response = await request(app)
+            .post('/service-orders')
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({
+                vehicle_brand: 'Ford',
+                vehicle_model: 'Ka',
+                title: 'Alinhamento'
+            });
 
-            expect(response.status).toBe(200);
-            expect(Array.isArray(response.body.data)).toBe(true);
-        });
+        expect(response.status).toBeGreaterThanOrEqual(400);
+    });
 
-        it('Funcionário deve conseguir listar Ordens de Serviço filtrando por status e cliente combinados', async () => {
-            const response = await request(app)
-                .get(`/service-orders?status=ORCAMENTO&customer_id=${customerId}`)
-                .set('Authorization', `Bearer ${employeeToken}`);
+    it('Usuário deslogado NÃO deve conseguir criar, listar ou atualizar OS (401)', async () => {
+        const resPost = await request(app).post('/service-orders').send({ title: 'Teste' });
+        expect(resPost.status).toBe(401);
 
-            expect(response.status).toBe(200);
-            expect(Array.isArray(response.body.data)).toBe(true);
-        });
+        const resGet = await request(app).get('/service-orders');
+        expect(resGet.status).toBe(401);
+    });
 
-        it('Funcionário deve conseguir remover um item da OS e estornar o estoque', async () => {
-            const newOs = await request(app)
-                .post('/service-orders')
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    customer_id: customerId,
-                    vehicle_brand: 'Fiat',
-                    vehicle_model: 'Uno',
-                    title: 'Teste Remoção Item'
-                });
-            const tempOsId = newOs.body.data.id;
+    it('Cliente (CUSTOMER) deve conseguir consultar APENAS a sua própria OS', async () => {
+        const osAdmin = await request(app)
+            .post('/service-orders')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+                customer_id: customerId,
+                vehicle_brand: 'Honda',
+                vehicle_model: 'Civic',
+                title: 'Troca de Oleo'
+            });
+        const customerOsId = osAdmin.body.data.id;
 
-            const itemRes = await request(app)
-                .post(`/service-orders/${tempOsId}/items`)
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({ product_id: productId, quantity: 2 });
-            
-            const itemId = itemRes.body.data.items[0].id;
+        const resOwner = await request(app)
+            .get(`/service-orders/${customerOsId}`)
+            .set('Authorization', `Bearer ${customerToken}`);
+        expect(resOwner.status).toBe(200);
 
-            const deleteRes = await request(app)
-                .delete(`/service-orders/${tempOsId}/items/${itemId}`)
-                .set('Authorization', `Bearer ${employeeToken}`);
+        const resOther = await request(app)
+            .get(`/service-orders/${customerOsId}`)
+            .set('Authorization', `Bearer ${otherCustomerToken}`);
+        expect(resOther.status).toBeGreaterThanOrEqual(400);
+    });
 
-            expect(deleteRes.status).toBe(200);
-            expect(deleteRes.body.data.items.length).toBe(0);
-        });
+    it('Cliente (CUSTOMER) NÃO deve conseguir adicionar peças ou alterar status de uma OS', async () => {
+        const itemResponse = await request(app)
+            .post(`/service-orders/${createdOsId}/items`)
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({
+                product_id: productId,
+                quantity: 1
+            });
+        expect(itemResponse.status).toBeGreaterThanOrEqual(400);
 
-        it('Funcionário deve conseguir desalocar um funcionário da OS', async () => {
-            const newOs = await request(app)
-                .post('/service-orders')
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    customer_id: customerId,
-                    vehicle_brand: 'Fiat',
-                    vehicle_model: 'Palio',
-                    title: 'Teste Desalocar Funcionário'
-                });
-            const tempOsId = newOs.body.data.id;
+        const statusResponse = await request(app)
+            .put(`/service-orders/${createdOsId}/status`)
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({
+                status: 'APROVADO'
+            });
+        expect(statusResponse.status).toBeGreaterThanOrEqual(400);
+    });
 
-            await request(app)
-                .post(`/service-orders/${tempOsId}/employees`)
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({ employee_id: employeeId });
+    it('Deve retornar 404 ao buscar por um ID de OS inexistente ou malformado', async () => {
+        const fakeUuid = '00000000-0000-0000-0000-000000000000';
+        const response = await request(app)
+            .get(`/service-orders/${fakeUuid}`)
+            .set('Authorization', `Bearer ${adminToken}`);
 
-            const deleteEmpRes = await request(app)
-                .delete(`/service-orders/${tempOsId}/employees/${employeeId}`)
-                .set('Authorization', `Bearer ${employeeToken}`);
+        expect(response.status).toBe(404);
+    });
 
-            expect(deleteEmpRes.status).toBe(200);
-            expect(deleteEmpRes.body.data.employees.length).toBe(0);
-        });
+    it('Funcionário deve conseguir listar Ordens de Serviço filtrando por status', async () => {
+        const response = await request(app)
+            .get('/service-orders?status=ORCAMENTO')
+            .set('Authorization', `Bearer ${employeeToken}`);
 
-        it('Funcionário deve conseguir excluir uma Ordem de Serviço não concluída', async () => {
-            const newOs = await request(app)
-                .post('/service-orders')
-                .set('Authorization', `Bearer ${employeeToken}`)
-                .send({
-                    customer_id: customerId,
-                    vehicle_brand: 'Ford',
-                    vehicle_model: 'Fiesta',
-                    title: 'Teste Exclusão OS'
-                });
-            const tempOsId = newOs.body.data.id;
+        expect(response.status).toBe(200);
+        expect(Array.isArray(response.body.data)).toBe(true);
+    });
 
-            const deleteRes = await request(app)
-                .delete(`/service-orders/${tempOsId}`)
-                .set('Authorization', `Bearer ${employeeToken}`);
+    it('Funcionário deve conseguir listar Ordens de Serviço filtrando por status e cliente combinados', async () => {
+        const response = await request(app)
+            .get(`/service-orders?status=ORCAMENTO&customer_id=${customerId}`)
+            .set('Authorization', `Bearer ${employeeToken}`);
 
-            expect(deleteRes.status).toBe(200);
-            expect(deleteRes.body.status).toBe('success');
-        });
+        expect(response.status).toBe(200);
+        expect(Array.isArray(response.body.data)).toBe(true);
+    });
+
+    it('Funcionário deve conseguir remover um item da OS e estornar o estoque', async () => {
+        const newOs = await request(app)
+            .post('/service-orders')
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                customer_id: customerId,
+                vehicle_brand: 'Fiat',
+                vehicle_model: 'Uno',
+                title: 'Teste Remoção Item'
+            });
+        const tempOsId = newOs.body.data.id;
+
+        const itemRes = await request(app)
+            .post(`/service-orders/${tempOsId}/items`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({ product_id: productId, quantity: 2 });
+        
+        const itemId = itemRes.body.data.items[0].id;
+
+        const deleteRes = await request(app)
+            .delete(`/service-orders/${tempOsId}/items/${itemId}`)
+            .set('Authorization', `Bearer ${employeeToken}`);
+
+        expect(deleteRes.status).toBe(200);
+        expect(deleteRes.body.data.items.length).toBe(0);
+    });
+
+    it('Funcionário deve conseguir desalocar um funcionário da OS', async () => {
+        const newOs = await request(app)
+            .post('/service-orders')
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                customer_id: customerId,
+                vehicle_brand: 'Fiat',
+                vehicle_model: 'Palio',
+                title: 'Teste Desalocar Funcionário'
+            });
+        const tempOsId = newOs.body.data.id;
+
+        await request(app)
+            .post(`/service-orders/${tempOsId}/employees`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({ employee_id: employeeId });
+
+        const deleteEmpRes = await request(app)
+            .delete(`/service-orders/${tempOsId}/employees/${employeeId}`)
+            .set('Authorization', `Bearer ${employeeToken}`);
+
+        expect(deleteEmpRes.status).toBe(200);
+        expect(deleteEmpRes.body.data.employees.length).toBe(0);
+    });
+
+    it('Funcionário deve conseguir excluir uma Ordem de Serviço não concluída', async () => {
+        const newOs = await request(app)
+            .post('/service-orders')
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                customer_id: customerId,
+                vehicle_brand: 'Ford',
+                vehicle_model: 'Fiesta',
+                title: 'Teste Exclusão OS'
+            });
+        const tempOsId = newOs.body.data.id;
+
+        const deleteRes = await request(app)
+            .delete(`/service-orders/${tempOsId}`)
+            .set('Authorization', `Bearer ${employeeToken}`);
+
+        expect(deleteRes.status).toBe(200);
+        expect(deleteRes.body.status).toBe('success');
+    });
+
+    it('Funcionário deve conseguir atualizar com sucesso os dados gerais da OS (PUT)', async () => {
+        const serviceOrderId = await createServiceOrder();
+        const response = await request(app)
+            .put(`/service-orders/${serviceOrderId}`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                vehicle_brand: 'Chevrolet',
+                vehicle_model: 'Corsa Classic',
+                vehicle_year: '2006',
+                title: 'Revisão Completa Atualizada',
+                description: 'Descrição alterada via PUT com sucesso',
+                labor_cost: 200.00,
+                discount: 10.00
+            });
+
+        expect(response.status).toBe(200);
+        expect(response.body.status).toBe('success');
+        expect(response.body.data.vehicle_model).toBe('Corsa Classic');
+        expect(response.body.data.title).toBe('Revisão Completa Atualizada');
+        expect(response.body.data.labor_cost).toBe(200.00);
+    });
+
+    it('NÃO deve permitir atualizar OS informando um desconto maior que o subtotal', async () => {
+        const serviceOrderId = await createServiceOrder();
+        const response = await request(app)
+            .put(`/service-orders/${serviceOrderId}`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                labor_cost: 50.00,
+                discount: 500.00
+            });
+
+        expect(response.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('Funcionário deve atualizar uma OS com dados completos e cliente informado', async () => {
+        const serviceOrderId = await createServiceOrder();
+        const response = await request(app)
+            .put(`/service-orders/${serviceOrderId}`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                customer_id: customerId,
+                vehicle_brand: 'Chevrolet',
+                vehicle_model: 'Corsa Classic',
+                vehicle_year: '2006',
+                vehicle_fipe_code: '004278-1',
+                title: 'Revisão Completa Atualizada',
+                description: 'Descrição alterada via PUT com sucesso',
+                labor_cost: 200.00,
+                discount: 10.00
+            });
+
+        expect(response.status).toBe(200);
+        expect(response.body.status).toBe('success');
+        expect(response.body.data.vehicle_model).toBe('Corsa Classic');
+        expect(response.body.data.title).toBe('Revisão Completa Atualizada');
+        expect(response.body.data.labor_cost).toBe(200.00);
+    });
+
+    it('Deve normalizar campos opcionais vazios ao atualizar uma OS', async () => {
+        const serviceOrderId = await createServiceOrder();
+        const response = await request(app)
+            .put(`/service-orders/${serviceOrderId}`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                vehicle_year: '',
+                vehicle_fipe_code: '',
+                description: ''
+            });
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.vehicle_year).toBe('N/I');
+        expect(response.body.data.vehicle_fipe_code).toBeNull();
+        expect(response.body.data.description).toBe('');
+    });
+
+    it('NÃO deve permitir atualizar uma OS que esteja com status CANCELADO', async () => {
+        const newOs = await request(app)
+            .post('/service-orders')
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                customer_id: customerId,
+                vehicle_brand: 'Renault',
+                vehicle_model: 'Sandero',
+                title: 'OS Para Cancelar'
+            });
+        const cancelOsId = newOs.body.data.id;
+
+        await request(app)
+            .put(`/service-orders/${cancelOsId}/status`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({ status: 'CANCELADO' });
+
+        const updateRes = await request(app)
+            .put(`/service-orders/${cancelOsId}`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({ title: 'Tentando mexer em OS cancelada' });
+
+        expect(updateRes.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('Deve validar erro ao tentar atualizar OS com ID malformado ou inexistente', async () => {
+        const fakeId = '00000000-0000-0000-0000-000000000000';
+        const response = await request(app)
+            .put(`/service-orders/${fakeId}`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({ title: 'Teste ID Inexistente' });
+
+        expect(response.status).toBe(404);
+    });
+
+    it('Deve retornar lista vazia ao buscar OS com ID de cliente inexistente ou filtro restritivo impossível', async () => {
+        const fakeCustId = '00000000-0000-0000-0000-999999999999';
+        const response = await request(app)
+            .get(`/service-orders?customer_id=${fakeCustId}`)
+            .set('Authorization', `Bearer ${employeeToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toEqual([]);
+    });
+
+    it('Deve tratar corretamente a busca de OS quando o ID é válido mas não existe no banco (retornando 404)', async () => {
+        const randomValidUuid = '99999999-9999-4999-a999-999999999999';
+        const response = await request(app)
+            .get(`/service-orders/${randomValidUuid}`)
+            .set('Authorization', `Bearer ${employeeToken}`);
+
+        expect(response.status).toBe(404);
+    });
+
+    it('Deve impedir que funcionário remova um funcionário/mecânico usando ID inválido ou inexistente na OS', async () => {
+        const fakeEmployeeId = '11111111-1111-4111-a111-111111111111';
+        const response = await request(app)
+            .delete(`/service-orders/${createdOsId}/employees/${fakeEmployeeId}`)
+            .set('Authorization', `Bearer ${employeeToken}`);
+
+        expect(response.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('Deve retornar erro ao tentar adicionar item em OS informando quantidade negativa ou zero', async () => {
+        const response = await request(app)
+            .post(`/service-orders/${createdOsId}/items`)
+            .set('Authorization', `Bearer ${employeeToken}`)
+            .send({
+                product_id: '00000000-0000-0000-0000-000000000000',
+                quantity: 0
+            });
+
+        expect(response.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('Deve listar Ordens de Serviço aplicando o filtro de paginação ou busca geral sem quebrar', async () => {
+        const response = await request(app)
+            .get('/service-orders?limit=5&page=1')
+            .set('Authorization', `Bearer ${employeeToken}`);
+
+        expect(response.status).toBe(200);
+        expect(Array.isArray(response.body.data)).toBe(true);
     });
 });

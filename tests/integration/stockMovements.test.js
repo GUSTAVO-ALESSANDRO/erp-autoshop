@@ -317,4 +317,71 @@ describe('Integration Tests - Stock Movements, Initial Stock & Audit', () => {
         const updated = await repo.update(fakeId, 'ENTRADA', 10, 10, 'Teste', pool);
         expect(updated).toBeNull();
     });
+
+    it('Deve impedir a exclusão de uma movimentação de estoque caso o ID seja inválido ou inexistente', async () => {
+        const fakeId = '00000000-0000-0000-0000-000000000000';
+        const res = await request(app)
+            .delete(`/stock/${fakeId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('Cliente (CUSTOMER) NÃO deve conseguir atualizar movimentações de estoque via PUT', async () => {
+        const listRes = await request(app)
+            .get(`/stock/products/${productId}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        
+        const movementId = listRes.body.data[0].id;
+
+        const res = await request(app)
+            .put(`/stock/${movementId}`)
+            .set('Authorization', `Bearer ${customerToken}`)
+            .send({ quantity: 10, reason: 'Tentativa cliente' });
+
+        expect(res.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('Cliente (CUSTOMER) NÃO deve conseguir excluir movimentações de estoque via DELETE', async () => {
+        const listRes = await request(app)
+            .get(`/stock/products/${productId}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        
+        const movementId = listRes.body.data[0].id;
+
+        const res = await request(app)
+            .delete(`/stock/${movementId}`)
+            .set('Authorization', `Bearer ${customerToken}`);
+
+        expect(res.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('Deve retornar erro ao tentar atualizar movimentação com tipo de operação desconhecido', async () => {
+        const listRes = await request(app)
+            .get(`/stock/products/${productId}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        
+        const movementId = listRes.body.data[0].id;
+
+        const res = await request(app)
+            .put(`/stock/${movementId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ type: 'TIPO_FALSO', quantity: 5, reason: 'Erro tipo' });
+
+        expect(res.status).toBe(400);
+    });
+
+    it('Usuário deslogado NÃO deve conseguir atualizar ou remover movimentações de estoque (401)', async () => {
+        const listRes = await request(app)
+            .get(`/stock/products/${productId}/stock-movements`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        
+        const movementId = listRes.body.data[0].id;
+
+        const putRes = await request(app).put(`/stock/${movementId}`).send({ quantity: 2 });
+        expect(putRes.status).toBe(401);
+
+        const deleteRes = await request(app).delete(`/stock/${movementId}`);
+        expect(deleteRes.status).toBe(401);
+    });
 });

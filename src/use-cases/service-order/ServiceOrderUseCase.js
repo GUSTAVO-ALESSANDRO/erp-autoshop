@@ -292,16 +292,12 @@ export class ServiceOrderUseCase {
                 os.description = description || '';
             }
 
-            let laborCostNum = os.labor_cost;
             if (labor_cost !== undefined) {
-                laborCostNum = parseNonNegativeAmount(labor_cost, 'custo de mão de obra');
-                os.labor_cost = laborCostNum;
+                os.labor_cost = parseNonNegativeAmount(labor_cost, 'custo de mão de obra');
             }
 
-            let discountNum = os.discount;
             if (discount !== undefined) {
-                discountNum = parseNonNegativeAmount(discount, 'desconto');
-                os.discount = discountNum;
+                os.discount = parseNonNegativeAmount(discount, 'desconto');
             }
 
             // Recalcula o total com base nos itens atuais + nova mão de obra - desconto
