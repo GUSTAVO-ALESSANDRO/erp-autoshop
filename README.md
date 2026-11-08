@@ -343,9 +343,7 @@ erDiagram
 | `SERVICE_ORDER_ITEMS` | Peças usadas em uma OS, com preços congelados no momento da inclusão, relaciona OS e produtos. |
 | `SERVICE_ORDER_EMPLOYEES` | Mecânicos alocados em uma OS, relaciona OS e funcionários (equipe de N pessoas por OS). |
 
-
 ---
-
 
 ## 📡 Documentação dos Endpoints
 
@@ -432,6 +430,13 @@ erDiagram
 | GET | `/fipe/brands/:brandId/models` | Lista os modelos da marca. | Logado |
 | GET | `/fipe/brands/:brandId/models/:modelId/years` | Lista os anos disponíveis do modelo. | Logado |
 | GET | `/fipe/price` | Preço FIPE: `?brandId=&modelId=&yearId=` ou `?fipeCode=&yearId=`. | Logado |
+
+### Dashboard (Módulo Administrativo)
+
+| MÉTODO | ROTA | Explicação | Permissão |
+| --- | --- | --- | --- |
+| GET | `/dashboard/summary` | Retorna o resumo geral de indicadores administrativos. | Administrador |
+| GET | `/dashboard/financial` | Retorna os relatórios e métricas financeiras do sistema. | Administrador |
 
 Aqui está o texto ajustado e integrado formalmente para ser inserido exatamente entre a seção da Tabela FIPE e a Infraestrutura e Pipeline DevOps, mantendo a consistência técnica e o tom profissional do seu README:
 
