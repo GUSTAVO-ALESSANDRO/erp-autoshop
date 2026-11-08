@@ -603,6 +603,74 @@
           "response": []
         },
         {
+          "name": "Retorno de todos Usuários do tipo cliente que tem ana no nome e estão ativos- token Admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/users?role=CUSTOMER&isActive=true&name=ana",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "CUSTOMER"
+                },
+                {
+                  "key": "isActive",
+                  "value": "true"
+                },
+                {
+                  "key": "name",
+                  "value": "ana"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Retorno de todos Usuários com email gmail - token Admin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/users?email=@gmail.com",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "@gmail.com"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Cadastro de Cliente",
           "request": {
             "method": "POST",
