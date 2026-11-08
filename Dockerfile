@@ -11,6 +11,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 # Atualiza os pacotes do Alpine para corrigir vulnerabilidades do OS base
 RUN apk update && apk upgrade --no-cache
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
@@ -21,4 +22,4 @@ COPY . .
 EXPOSE 3000
 
 # Comando para iniciar o servidor
-CMD ["npm", "start"]
+CMD ["node", "src/server.js"]
