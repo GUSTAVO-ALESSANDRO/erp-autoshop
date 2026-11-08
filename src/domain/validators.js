@@ -1,11 +1,12 @@
 import { ValidationError } from './errors/DomainErrors.js';
 
+// Regex simplificada e segura para UUID v4
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Regex para validação de formato de e-mail
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Verifica o formato de UUID antes de consultar o banco, evita erro cru do pg com ID malformado
-export const isUuid = (value) => typeof value === 'string' && UUID_REGEX.test(value);
+export const isUuid = (value) => typeof value === 'string' && value.length === 36 && UUID_REGEX.test(value);
 
 // Regra de senha, 8 a 72 caracteres (72 é o limite do bcrypt)
 export function validatePassword(password) {

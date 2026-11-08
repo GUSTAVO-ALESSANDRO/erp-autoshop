@@ -76,6 +76,19 @@ export class ServiceOrderController {
         }
     }
 
+    // Trata a atualização geral de uma Ordem de Serviço
+    async update(req, res, next) {
+        try {
+            const { id } = req.params;
+            const updateData = req.body;
+            const requesterUser = req.user;
+            const updatedOs = await this.serviceOrderUseCase.updateServiceOrder(id, updateData, requesterUser);
+            return res.status(200).json({ status: 'success', data: this.present(updatedOs, requesterUser) });
+        } catch (error) {
+            return next(error);
+        }
+    }
+
     // Trata a atualização de status da OS (gatilho para estoque e e-mail)
     async updateStatus(req, res, next) {
         try {
