@@ -236,6 +236,91 @@ export class ServiceOrderUseCase {
         return finalOs;
     }
 
+    // Atualiza os dados cadastrais e financeiros de uma Ordem de Serviço existente
+    async updateServiceOrder(osId, updateData = {}, requesterUser) {
+        if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {
+            throw new BusinessRuleError('Acesso negado. Apenas funcionários ou administradores podem atualizar Ordens de Serviço.');
+        }
+
+        if (!osId || !isUuid(osId)) {
+            throw new ValidationError('ID de Ordem de Serviço inválido.');
+        }
+
+        const {
+            vehicle_brand,
+            vehicle_model,
+            vehicle_year,
+            vehicle_fipe_code,
+            title,
+            description,
+            labor_cost,
+            discount
+        } = updateData || {};
+
+        return await this.transactionManager.transaction(async (client) => {
+            // Busca a OS com bloqueio para concorrência
+            const os = await this.serviceOrderRepository.findById(osId, client, true);
+            if (!os) {
+                throw new NotFoundError('Ordem de Serviço não encontrada.');
+            }
+
+            // Impede alterações se a OS já estiver concluída ou cancelada
+            if (['CONCLUIDO', 'CANCELADO'].includes(os.status)) {
+                throw new BusinessRuleError('Não é permitido alterar Ordens de Serviço concluídas ou canceladas.');
+            }
+
+            // Atualiza os campos se fornecidos, mantendo os antigos caso contrário
+            if (vehicle_brand !== undefined) {
+                validateMinName(vehicle_brand, 'marca do veículo', 2);
+                os.vehicle_brand = vehicle_brand.trim();
+            }
+            if (vehicle_model !== undefined) {
+                validateMinName(vehicle_model, 'modelo do veículo', 2);
+                os.vehicle_model = vehicle_model.trim();
+            }
+            if (vehicle_year !== undefined) {
+                os.vehicle_year = vehicle_year || 'N/I';
+            }
+            if (vehicle_fipe_code !== undefined) {
+                os.vehicle_fipe_code = vehicle_fipe_code || null;
+            }
+            if (title !== undefined) {
+                validateMinName(title, 'título da ordem de serviço', 3);
+                os.title = title.trim();
+            }
+            if (description !== undefined) {
+                os.description = description || '';
+            }
+
+            let laborCostNum = os.labor_cost;
+            if (labor_cost !== undefined) {
+                laborCostNum = parseNonNegativeAmount(labor_cost, 'custo de mão de obra');
+                os.labor_cost = laborCostNum;
+            }
+
+            let discountNum = os.discount;
+            if (discount !== undefined) {
+                discountNum = parseNonNegativeAmount(discount, 'desconto');
+                os.discount = discountNum;
+            }
+
+            // Recalcula o total com base nos itens atuais + nova mão de obra - desconto
+            const itemsTotal = os.items.reduce((sum, item) => sum + (item.quantity * item.unit_sell_price), 0);
+            const subtotal = itemsTotal + os.labor_cost;
+
+            if (os.discount > subtotal) {
+                throw new ValidationError('O desconto não pode ser maior que o subtotal da Ordem de Serviço.');
+            }
+
+            os.total_amount = subtotal - os.discount;
+
+            // Salva no banco de dados dentro da transação
+            await this.serviceOrderRepository.update(os, client);
+
+            return await this.serviceOrderRepository.findById(osId, client);
+        });
+    }
+
     // Gerencia transição de status da OS com baixa transacional ACID e e-mails
     async updateStatus(osId, newStatus, requesterUser) {
         if (!requesterUser || (!requesterUser.isAdmin() && !requesterUser.isEmployee())) {

@@ -36,6 +36,7 @@ serviceOrderRoutes.post('/', verifyToken, (req, res, next) => serviceOrderContro
 serviceOrderRoutes.get('/', verifyToken, (req, res, next) => serviceOrderController.getAll(req, res, next));
 serviceOrderRoutes.get('/:id', verifyToken, (req, res, next) => serviceOrderController.getById(req, res, next));
 serviceOrderRoutes.put('/:id/status', verifyToken, checkRole(['EMPLOYEE', 'ADMIN']), (req, res, next) => serviceOrderController.updateStatus(req, res, next));
+serviceOrderRoutes.put('/:id', verifyToken, checkRole(['EMPLOYEE', 'ADMIN']), (req, res, next) => serviceOrderController.update(req, res, next));
 serviceOrderRoutes.delete('/:id', verifyToken, checkRole(['EMPLOYEE', 'ADMIN']), (req, res, next) => serviceOrderController.remove(req, res, next));
 
 // Adiciona e remove itens e funcionários na OS
