@@ -7221,7 +7221,7 @@
               }
             ],
             "url": {
-              "raw": "http://localhost:3000/dashboard/summary",
+              "raw": "http://localhost:3000/dashboard/financial",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -7229,7 +7229,7 @@
               "port": "3000",
               "path": [
                 "dashboard",
-                "summary"
+                "financial"
               ]
             }
           },
@@ -7416,16 +7416,13 @@
   ],
   "variable": [
     {
-      "key": "token_admin",
-      "secret": true
+      "key": "token_admin"
     },
     {
-      "key": "token_employee",
-      "secret": true
+      "key": "token_employee"
     },
     {
-      "key": "token_customer",
-      "secret": true
+      "key": "token_customer"
     },
     {
       "key": "token_invalido",
